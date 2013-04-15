@@ -30,7 +30,7 @@ bl_info = {
     "category": "Mesh"}
 
 import bpy
-#from mathutils import Vector
+from mathutils import Vector
 #from math import sin, cos
 
 #Debug Line
@@ -165,24 +165,56 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
     def execute(self, context):
         ob = context.object
         
-        self.makeMeshCopy("silhouetteX", context)
+        #Input objects
+        #Names are false if prop doesn't exist
+        sxName = self.makeMeshCopy("silhouetteX", context)
+        syName = self.makeMeshCopy("silhouetteY", context)
+        szName = self.makeMeshCopy("silhouetteZ", context)
+        
+        #Dummy Values for verticies and faces
+        verts = [[0,0,0],[1,0,0],[1,1,0]]
+        faces = [[0,1,2]]
+        
+        #FIXME set verts and faces to something smart.
+        
+        #Actually generate the mess
+        self.addMesh("Surface", verts, faces)
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
         
+        #FIXME deleat temporary copies of silhouettes
+        
         return{'FINISHED'}
         
-        
     def makeMeshCopy(self, name, context):
-        if hasObject(getProp(name)):
-            ob = getObject(getProp(name))
+        val = getProp(name)
+        if val and hasObject(val):
+            ob = getObject(val)
             context.scene.objects.active = ob
             selectObjectName(ob.name)
             bpy.ops.object.duplicate()
             bpy.ops.object.convert(target='MESH')
             return context.object.name
-
-
+        return False
+        
+    def addMesh(self, name, verts, faces):
+        if name:
+            me = bpy.data.meshes.new(name+'Mesh')
+            ob = bpy.data.objects.new(name, me)
+            ob.location = Vector()
+            
+            scn = bpy.context.scene
+            scn.objects.link(ob)
+            scn.objects.active = ob
+            ob.select = True
+         
+            me.from_pydata(verts, [], faces)
+            
+            me.update()
+            
+            return ob
+        return False
 
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
