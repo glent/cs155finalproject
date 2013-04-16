@@ -174,20 +174,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         verts = []
         faces = []
         
-        print(sxName, syName)
-        
         if sxName and syName:
-            print('hi')
             sx  = getObject(sxName)
             sy  = getObject(syName)
             
-            print(dir(sx.data.vertices[1]))
             yvals = [vert.co.x for vert in sy.data.vertices]
             zvals = [vert.co.y for vert in sy.data.vertices] 
             #[vert.co.x for vert in sx.data.vertices] + 
             for yval in yvals:
                 for zval in zvals:
-                    print(yval,zval)
                     xvals = self.getIntersections(True, zval, sx.data.vertices, sx.data.edges)
                     for xval in xvals:
                         verts.append([xval,yval,zval])
@@ -204,14 +199,12 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         context.scene.objects.active = ob
         selectObjectName(ob.name)
         
-        print(verts)
         #FIXME deleat temporary copies of silhouettes
         
         return{'FINISHED'}
         
     def makeMeshCopy(self, name, val, context):
         if val and hasObject(val):
-            print(name, "got this far")
             ob = getObject(val)
             context.scene.objects.active = ob
             selectObjectName(ob.name)
