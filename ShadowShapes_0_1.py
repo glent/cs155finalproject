@@ -154,7 +154,7 @@ class MESH_OT_AddSilhouetteObject(bpy.types.Operator):
     bl_label = "Add Silhouette Object"
 
     def execute(self, context):
-        bpy.ops.object.empty_add()
+        bpy.ops.object.add(type = 'EMPTY')
         setProp("Silhouette", True)
         return{'FINISHED'}
     
@@ -182,9 +182,9 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             sy  = getObject(syName)
             
             print(dir(sx.data.vertices[1]))
-            yvals = [vert.co.x for vert in sx.data.vertices] + [vert.co.x for vert in sy.data.vertices]
-            zvals = [vert.co.y for vert in sx.data.vertices]
-            
+            yvals = [vert.co.x for vert in sy.data.vertices]
+            zvals = [vert.co.y for vert in sy.data.vertices] 
+            #[vert.co.x for vert in sx.data.vertices] + 
             for yval in yvals:
                 for zval in zvals:
                     print(yval,zval)
