@@ -167,13 +167,34 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         #Input objects
         #Names are false if prop doesn't exist
-        sxName = self.makeMeshCopy("silhouetteX", context)
-        syName = self.makeMeshCopy("silhouetteY", context)
-        szName = self.makeMeshCopy("silhouetteZ", context)
+        sxName = self.makeMeshCopy("silhouetteX", ob.silhouetteX, context)
+        syName = self.makeMeshCopy("silhouetteY", ob.silhouetteY, context)
+        szName = self.makeMeshCopy("silhouetteZ", ob.silhouetteZ, context)
         
+        verts = []
+        faces = []
+        
+        print(sxName, syName)
+        
+        if sxName and syName:
+            print('hi')
+            sx  = getObject(sxName)
+            sy  = getObject(syName)
+            
+            print(dir(sx.data.vertices[1]))
+            yvals = [vert.co.x for vert in sx.data.vertices] + [vert.co.x for vert in sy.data.vertices]
+            zvals = [vert.co.y for vert in sx.data.vertices]
+            
+            for yval in yvals:
+                for zval in zvals:
+                    print(yval,zval)
+                    xvals = self.getIntersections(True, zval, sx.data.vertices, sx.data.edges)
+                    for xval in xvals:
+                        verts.append([xval,yval,zval])
+                    
         #Dummy Values for verticies and faces
-        verts = [[0,0,0],[1,0,0],[1,1,0]]
-        faces = [[0,1,2]]
+        #verts = [[0,0,0],[1,0,0],[1,1,0]]
+        #faces = [[0,1,2]]
         
         #FIXME set verts and faces to something smart.
         
@@ -183,13 +204,14 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         context.scene.objects.active = ob
         selectObjectName(ob.name)
         
+        print(verts)
         #FIXME deleat temporary copies of silhouettes
         
         return{'FINISHED'}
         
-    def makeMeshCopy(self, name, context):
-        val = getProp(name)
+    def makeMeshCopy(self, name, val, context):
         if val and hasObject(val):
+            print(name, "got this far")
             ob = getObject(val)
             context.scene.objects.active = ob
             selectObjectName(ob.name)
@@ -215,6 +237,24 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             
             return ob
         return False
+    
+    def getIntersections(self, isX, val, verts, edges):
+        intersects = [] 
+        
+        for edge in edges:
+            v1 = verts[edge.vertices[0]].co
+            v2 = verts[edge.vertices[1]].co
+            
+            if isX:
+                if v1.x <= val <= v2.x or v2.x <= val <= v1.x:
+                    intersects.append((v1.x - val)/(v1.x-v2.x)*v1.y + \
+                                      (v2.x - val)/(v2.x-v1.x)*v2.y)                    
+            else:
+                if v1.y <= val <= v2.y or v2.y <= val <= v1.y:
+                    intersects.append((v1.y - val)/(v1.y-v2.y)*v1.x + \
+                                      (v2.y - val)/(v2.y-v1.y)*v2.x)
+
+        return intersects
 
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
