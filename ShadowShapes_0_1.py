@@ -193,25 +193,23 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             
             yvals = [vert.co.x for vert in sy.data.vertices]
             zvals = [vert.co.y for vert in sy.data.vertices] 
-            #[vert.co.x for vert in sx.data.vertices] + 
+            #[vert.co.x for vert in sx.data.vertices]
             for yval in yvals:
                 for zval in zvals:
-                    xvals = self.getIntersections(True, zval, sx.data.vertices, sx.data.edges)
-                    for xval in xvals:
+                    if self.isInSilhouette(yval,zval):
+                        xvals = self.getLineIntersections(True, zval, 
+                                                          sx.data.vertices, 
+                                                          sx.data.edges)
+                                                          
+                    for xval in xvals.values():
                         verts.append([xval,yval,zval])
-                    
 
-        
             #Delete temporary copies of silhouettes
             if (sx):
                 sx.select = True
             if (sy):
                 sy.select = True
             bpy.ops.object.delete()
-            
-        #Dummy Values for vertices and faces
-        #verts = [[0,0,0],[1,0,0],[1,1,0]]
-        #faces = [[0,1,2]]
         
         #Actually generate the mesh
         self.addMesh("Surface", verts, faces)
@@ -220,6 +218,10 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         selectObjectName(ob.name)
         
         return{'FINISHED'}
+
+    def isInSilhouette(self, x, y):
+        
+        return True
         
     def makeMeshCopy(self, name, val, context):
         if val and hasObject(val):
@@ -249,24 +251,45 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             return ob
         return False
     
-    def getIntersections(self, isX, val, verts, edges):
-        intersects = []
+    def getLineIntersections(self, isX, val, verts, edges):
+        intersects = {}
         
         for edge in edges:
-            v1 = verts[edge.vertices[0]].co
-            v2 = verts[edge.vertices[1]].co
+            vert1 = verts[edge.vertices[0]]
+            vert2 = verts[edge.vertices[1]]
+                
+            hit, key = self.getIntersection(isX, vert1, vert2, val)
             
-            if isX:
-                if v1.x <= val <= v2.x or v2.x <= val <= v1.x:
-                    intersects.append((v1.x - val)/(v1.x-v2.x)*v1.y + \
-                                      (v2.x - val)/(v2.x-v1.x)*v2.y)
-
-            else:
-                if v1.y <= val <= v2.y or v2.y <= val <= v1.y:
-                    intersects.append((v1.y - val)/(v1.y-v2.y)*v1.x + \
-                                      (v2.y - val)/(v2.y-v1.y)*v2.x)
-
+            if hit:
+                intersects[key] = hit
+            
         return intersects
+    
+    def getIntersection(self, isX, vert1, vert2, val):
+        v1 = vert1.co
+        v2 = vert2.co
+        
+        hit = False
+        key = False
+        
+        if isX:
+            if v1.x == val:
+                hit = v1.y
+                key = vert1
+                
+            elif v2.x == val:
+                hit = v2.y
+                key = vert2
+            
+            elif v1.x < val < v2.x or v2.x < val < v1.x:
+                hit = (v2.y-v1.y)*(val- v1.x)/(v2.x-v1.x) + v1.y
+                key = (vert1, vert2)
+
+        else:
+            print("This is broken")
+       
+        return hit,key
+    
 
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
@@ -286,4 +309,3 @@ def unregister():
     
 if __name__ == "__main__":
     register()
-
