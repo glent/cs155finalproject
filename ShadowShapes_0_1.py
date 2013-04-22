@@ -193,19 +193,22 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             
             yvals = [vert.co.x for vert in sy.data.vertices]
             zvals = [vert.co.y for vert in sy.data.vertices] 
-            #[vert.co.x for vert in sx.data.vertices]
-            for yval in yvals:
+            
+            for i in range(len(yvals)):
+                yval = yvals[i]
+                
                 intersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
                 
-                for zval in zvals:
-                    if self.isInSilhouette(zval, intersects):
-                        
-                        xvals = self.getLineIntersections(True, zval, 
+                xvals = self.getLineIntersections(True, yval, 
                                                           sy.data.vertices, 
                                                           sy.data.edges)
-                                                          
+                
+                for j in range(len(zvals)):
+                    zval = zvals[j]
+                    
+                    if self.isInSilhouette(zval, intersects):
                         for xval in xvals.values():
-                            verts.append([xval,yval,zval])
+                            verts.append([xval,zval,yval])
 
             #Delete temporary copies of silhouettes
             if (sx):
