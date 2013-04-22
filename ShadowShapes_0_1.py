@@ -179,13 +179,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         ob = context.object
         
         #Input objects
-        #Names are false if prop doesn't exist
+        #_Names are false if prop doesn't exist
         sxName = self.makeMeshCopy("silhouetteX", ob.silhouetteX, context)
         syName = self.makeMeshCopy("silhouetteY", ob.silhouetteY, context)
         szName = self.makeMeshCopy("silhouetteZ", ob.silhouetteZ, context)
         
         verts = []
         faces = []
+        
+        old_xvals = None
         
         if sxName and syName:
             sy  = getObject(sxName)
@@ -197,18 +199,30 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             for i in range(len(yvals)):
                 yval = yvals[i]
                 
-                intersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
+                yintersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
                 
-                xvals = self.getLineIntersections(True, yval, 
+                xintersects = self.getLineIntersections(True, yval, 
                                                           sy.data.vertices, 
                                                           sy.data.edges)
                 
                 for j in range(len(zvals)):
                     zval = zvals[j]
                     
-                    if self.isInSilhouette(zval, intersects):
-                        for xval in xvals.values():
-                            verts.append([xval,zval,yval])
+                    if not old_xvals:
+                        if self.isInSilhouette(zval, yintersects):
+                            for key,val in xintersects.items():
+                                xval = val[0]
+                                verts.append([xval,zval,yval])
+                                
+                                #if key.__class__ == ().__class__:
+                                #    key[0]
+                                #    key[1]
+                                
+                    
+                    else:
+                        None
+                                
+                old_xintersects = xintersects
 
             #Delete temporary copies of silhouettes
             if (sx):
@@ -228,7 +242,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
     def isInSilhouette(self, y, intersects):
         inS = False
         
-        for yval in intersects.values():
+        for val in intersects.values():
+            yval = val[0]
             if yval > y:
                 inS = not inS      
         
@@ -266,40 +281,47 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         intersects = {}
         
         for edge in edges:
-            vert1 = verts[edge.vertices[0]]
-            vert2 = verts[edge.vertices[1]]
+            vert1 = edge.vertices[0]
+            vert2 = edge.vertices[1]
                 
-            hit, key = self.getIntersection(isX, vert1, vert2, val)
+            hit, key, connected = self.getIntersection(isX, vert1, vert2, val, verts)
             
             if hit:
-                intersects[key] = hit
-            
+                if connected in intersects.keys():
+                    intersects[key][1].append(connected)
+                else:
+                    intersects[key] = (hit, [connected])
+                    
         return intersects
     
-    def getIntersection(self, isX, vert1, vert2, val):
-        v1 = vert1.co
-        v2 = vert2.co
+    def getIntersection(self, isX, vert1, vert2, val, verts):
+        v1 = verts[vert1].co
+        v2 = verts[vert2].co
         
         hit = False
         key = False
+        connected = None
         
         if isX:
             if v1.x == val:
                 hit = v1.y
                 key = vert1
+                connected = vert2
                 
             elif v2.x == val:
                 hit = v2.y
                 key = vert2
+                connected = vert1
             
             elif v1.x < val < v2.x or v2.x < val < v1.x:
                 hit = (v2.y-v1.y)*(val- v1.x)/(v2.x-v1.x) + v1.y
                 key = (vert1, vert2)
+                connected = None
 
         else:
             print("This is broken")
        
-        return hit,key
+        return hit,key, connected
     
 
 def register():
