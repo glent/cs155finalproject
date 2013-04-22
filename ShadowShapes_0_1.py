@@ -195,16 +195,17 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             zvals = [vert.co.y for vert in sy.data.vertices] 
             #[vert.co.x for vert in sx.data.vertices]
             for yval in yvals:
+                intersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
+                
                 for zval in zvals:
-                    if self.isInSilhouette(yval,zval, 
-                                           sx.data.vertices, 
-                                           sx.data.edges):
+                    if self.isInSilhouette(zval, intersects):
+                        
                         xvals = self.getLineIntersections(True, zval, 
                                                           sy.data.vertices, 
                                                           sy.data.edges)
                                                           
-                    for xval in xvals.values():
-                        verts.append([xval,yval,zval])
+                        for xval in xvals.values():
+                            verts.append([xval,yval,zval])
 
             #Delete temporary copies of silhouettes
             if (sx):
@@ -218,18 +219,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
-      
+
         return{'FINISHED'}
 
-    def isInSilhouette(self, x, y, verts, edges):
+    def isInSilhouette(self, y, intersects):
         inS = False
         
-        for edge in edges:
-            v1 = verts[edge.vertices[0]].co
-            v2 = verts[edge.vertices[1]].co
-            if ((v1.y > y) != (v2.y > y) and
-                (x < ((v2.x - v1.x)*(y-v1.y)/(v2.y-v1.y) + v1.x))):
-                 inS = not inS
+        for yval in intersects.values():
+            if yval > y:
+                inS = not inS      
         
         return inS
         
