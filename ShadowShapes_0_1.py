@@ -145,6 +145,7 @@ class Panel(bpy.types.Panel):
             box.prop(context.object, "silhouetteY", text="Y Axis (Side)")
             box.prop(context.object, "silhouetteZ", text="Z Axis (Top)")
             box.operator("generate.obj", text="Generate")
+            box.operator("cleanup.obj", text="Remove Mesh")
 
 
 
@@ -156,6 +157,18 @@ class MESH_OT_AddSilhouetteObject(bpy.types.Operator):
     def execute(self, context):
         bpy.ops.object.add(type = 'EMPTY')
         setProp("Silhouette", True)
+        return{'FINISHED'}
+    
+class MESH_OT_Remove(bpy.types.Operator):
+    bl_idname = "cleanup.obj"
+    bl_label = "Remove Mesh"
+    
+    def execute(self, context):
+        ob = context.object
+        ob.select = False
+        selectObjectName("Surface")
+        bpy.ops.object.delete()
+        ob.select = True
         return{'FINISHED'}
     
 class MESH_OT_GenerateMesh(bpy.types.Operator):
@@ -187,19 +200,24 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     for xval in xvals:
                         verts.append([xval,yval,zval])
                     
-        #Dummy Values for verticies and faces
+
+        
+            #Delete temporary copies of silhouettes
+            if (sx):
+                sx.select = True
+            if (sy):
+                sy.select = True
+            bpy.ops.object.delete()
+            
+        #Dummy Values for vertices and faces
         #verts = [[0,0,0],[1,0,0],[1,1,0]]
         #faces = [[0,1,2]]
         
-        #FIXME set verts and faces to something smart.
-        
-        #Actually generate the mess
+        #Actually generate the mesh
         self.addMesh("Surface", verts, faces)
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
-        
-        #FIXME deleat temporary copies of silhouettes
         
         return{'FINISHED'}
         
@@ -232,7 +250,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         return False
     
     def getIntersections(self, isX, val, verts, edges):
-        intersects = [] 
+        intersects = []
         
         for edge in edges:
             v1 = verts[edge.vertices[0]].co
@@ -241,7 +259,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             if isX:
                 if v1.x <= val <= v2.x or v2.x <= val <= v1.x:
                     intersects.append((v1.x - val)/(v1.x-v2.x)*v1.y + \
-                                      (v2.x - val)/(v2.x-v1.x)*v2.y)                    
+                                      (v2.x - val)/(v2.x-v1.x)*v2.y)
+
             else:
                 if v1.y <= val <= v2.y or v2.y <= val <= v1.y:
                     intersects.append((v1.y - val)/(v1.y-v2.y)*v1.x + \
@@ -256,13 +275,15 @@ def register():
     
     bpy.utils.register_class(Panel)
     bpy.utils.register_class(MESH_OT_AddSilhouetteObject)
-    bpy.utils.register_class(MESH_OT_GenerateMesh)  
+    bpy.utils.register_class(MESH_OT_GenerateMesh)
+    bpy.utils.register_class(MESH_OT_Remove)  
     
 def unregister():
     bpy.utils.unregister_class(HelloWorldPanel)
     bpy.utils.unregister_class(MESH_OT_AddSilhouetteObject)
     bpy.utils.unregister_class(MESH_OT_GenerateMesh)
+    bpy.utils.unregister_class(MESH_OT_Remove)
     
 if __name__ == "__main__":
     register()
-    
+
