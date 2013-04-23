@@ -165,8 +165,9 @@ class MESH_OT_Remove(bpy.types.Operator):
     
     def execute(self, context):
         ob = context.object
+        name = ob.name
         ob.select = False
-        selectObjectName("Surface")
+        selectObjectName(name+"Surface")
         bpy.ops.object.delete()
         ob.select = True
         return{'FINISHED'}
@@ -177,6 +178,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
 
     def execute(self, context):
         ob = context.object
+        name = ob.name
+        loc = ob.location
+        
+        #Deleate Old Surface if it exists
+        ob.select = False
+        selectObjectName(name+"Surface")
+        bpy.ops.object.delete()
+        ob.select = True
+        
         
         #Input objects
         #_Names are false if prop doesn't exist
@@ -206,6 +216,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             for i in range(ymax):
                 yval = yvals[i]
                 
+                #Precompute Intersections
                 yintersects = self.getLineIntersections(True, yval, 
                                                         sx.data.vertices, 
                                                         sx.data.edges)
@@ -220,8 +231,11 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     if self.isInSilhouette(zval, yintersects):
                         temp_verts = []
                         
+                        
                         for key,val in xintersects.items():
                             xval = val[0]
+                            
+                            
                             verts.append([xval,zval,yval])
                             temp_verts.append(index)
                             
@@ -233,7 +247,9 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                      
                      
                         ij_to_index[(i,j)] = temp_verts
-            
+                        
+                        #"""
+                        #Generate Faces
                         if i != 0 and j != 0:
                             a = ij_to_index[(i,j)]
                             b = ij_to_index[(i-1,j)]
@@ -256,9 +272,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                     face, remainder = self.findConnected(remainder[0], remainder, connected)
                                     if len(face) > 2:
                                         faces.append(face)
-                                
-                            #if len(indexList) > 2:
-                            #    faces.append(indexList)  
+                        #"""
                     else:
                         ij_to_index[(i,j)] = False
                                 
@@ -271,7 +285,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             bpy.ops.object.delete()
         
         #Actually generate the mesh
-        self.addMesh("Surface", verts, faces)
+        self.addMesh(name+"Surface", verts, faces)
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
@@ -325,15 +339,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             for index in inputList:
                 outputList.append(index)
 
-
     def isInSilhouette(self, y, intersects):
         inS = False
         
         for val in intersects.values():
             yval = val[0]
-            if yval > y:
-                inS = not inS      
-        
+            if yval < y:
+                inS = not inS
+            elif yval == y:  #FIXME change for CSG Tree
+                return True
         return inS
         
     def makeMeshCopy(self, name, val, context):
