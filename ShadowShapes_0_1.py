@@ -196,7 +196,13 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             yvals = [vert.co.x for vert in sy.data.vertices]
             zvals = [vert.co.y for vert in sy.data.vertices] 
             
-            for i in range(len(yvals)):
+            ymax = len(yvals)
+           
+            dict = {}
+            
+            index = 0
+            
+            for i in range(ymax):
                 yval = yvals[i]
                 
                 yintersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
@@ -208,22 +214,44 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 for j in range(len(zvals)):
                     zval = zvals[j]
                     
-                    if not old_xvals:
-                        if self.isInSilhouette(zval, yintersects):
-                            for key,val in xintersects.items():
-                                xval = val[0]
-                                verts.append([xval,zval,yval])
+                    if self.isInSilhouette(zval, yintersects):
+                        temp_verts = []
+                        
+                        for key,val in xintersects.items():
+                            xval = val[0]
+                            verts.append([xval,zval,yval])
+                            temp_verts.append(index)
+                            index += 1
+                     
+                     
+                        dict[(i,j)] = temp_verts
+            
+                        if i != 0 and j != 0:
+                            print(i,j)
+                            
+                            
+                            a = dict[(i,j)]
+                            b = dict[(i-1,j)]
+                            c = dict[(i-1,j-1)]
+                            d = dict[(i,j-1)]
+                            
+                            if a and b and c and d:
+                                print(a,b,c,d)
+                                faces.append([a[0],b[0],c[0],d[0]])
+                            elif a and b and c:
+                                faces.append([a[0],b[0],c[0]])
+                            elif b and c and d:
+                                faces.append([b[0],c[0],d[0]])
+                            elif c and d and a:
+                                faces.append([c[0],d[0],a[0]])
+                            elif d and a and b:
+                                faces.append([d[0],a[0],b[0]])
                                 
-                                #if key.__class__ == ().__class__:
-                                #    key[0]
-                                #    key[1]
-                                
-                    
+                            
                     else:
-                        None
+                        dict[(i,j)] = False
                                 
-                old_xintersects = xintersects
-
+                                    
             #Delete temporary copies of silhouettes
             if (sx):
                 sx.select = True
