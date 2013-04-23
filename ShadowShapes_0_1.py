@@ -198,18 +198,21 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             
             ymax = len(yvals)
            
-            dict = {}
+            ij_to_index = {}
+            connected = {}
             
             index = 0
             
             for i in range(ymax):
                 yval = yvals[i]
                 
-                yintersects = self.getLineIntersections(True, yval, sx.data.vertices, sx.data.edges)
+                yintersects = self.getLineIntersections(True, yval, 
+                                                        sx.data.vertices, 
+                                                        sx.data.edges)
                 
                 xintersects = self.getLineIntersections(True, yval, 
-                                                          sy.data.vertices, 
-                                                          sy.data.edges)
+                                                        sy.data.vertices, 
+                                                        sy.data.edges)
                 
                 for j in range(len(zvals)):
                     zval = zvals[j]
@@ -221,35 +224,43 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                             xval = val[0]
                             verts.append([xval,zval,yval])
                             temp_verts.append(index)
+                            
+                            if key[0]:
+                                connected[index] = (key[0], key[1], val[1])
+                            else:
+                                connected[index] = (key[0], [key[1], key[2]])
                             index += 1
                      
                      
-                        dict[(i,j)] = temp_verts
+                        ij_to_index[(i,j)] = temp_verts
             
                         if i != 0 and j != 0:
-                            print(i,j)
+                            a = ij_to_index[(i,j)]
+                            b = ij_to_index[(i-1,j)]
+                            c = ij_to_index[(i-1,j-1)]
+                            d = ij_to_index[(i,j-1)]
                             
+                            indexList = []
                             
-                            a = dict[(i,j)]
-                            b = dict[(i-1,j)]
-                            c = dict[(i-1,j-1)]
-                            d = dict[(i,j-1)]
+                            self.grabValidIndexes(a, indexList)
+                            self.grabValidIndexes(b, indexList)
+                            self.grabValidIndexes(d, indexList)
+                            self.grabValidIndexes(c, indexList)
                             
-                            if a and b and c and d:
-                                print(a,b,c,d)
-                                faces.append([a[0],b[0],c[0],d[0]])
-                            elif a and b and c:
-                                faces.append([a[0],b[0],c[0]])
-                            elif b and c and d:
-                                faces.append([b[0],c[0],d[0]])
-                            elif c and d and a:
-                                faces.append([c[0],d[0],a[0]])
-                            elif d and a and b:
-                                faces.append([d[0],a[0],b[0]])
+                            if len(indexList) > 2:
+                                face, remainder = self.findConnected(indexList[0], indexList, connected)
+                                if len(face) > 2:
+                                    faces.append(face)
                                 
-                            
+                                while remainder and face:
+                                    face, remainder = self.findConnected(remainder[0], remainder, connected)
+                                    if len(face) > 2:
+                                        faces.append(face)
+                                
+                            #if len(indexList) > 2:
+                            #    faces.append(indexList)  
                     else:
-                        dict[(i,j)] = False
+                        ij_to_index[(i,j)] = False
                                 
                                     
             #Delete temporary copies of silhouettes
@@ -266,6 +277,54 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         selectObjectName(ob.name)
 
         return{'FINISHED'}
+
+    def findConnected(self, curr, indexList, connected):
+        
+        if indexList:
+            a = connected[curr]
+            
+            if a[0]:
+                adj, remainder = self.findAdjacent(a[1], indexList, connected)
+            else:
+                adj, remainder = self.findAdjacent(a[1][0], indexList, connected)
+                if not adj:
+                    adj, remainder = self.findAdjacent(a[1][1], indexList, connected)
+            
+            for i in adj:
+                tempAdj, remainder = self.findConnected(i, remainder, connected)
+                adj += tempAdj
+            
+            return adj, remainder
+        
+        else:
+            print("something unexpedted happend")
+            return [], []                
+                
+    def findAdjacent(self, curr, indexList, connected):
+        adjacent = []
+        notAdjacent = []
+            
+        for i in indexList:
+            b = connected[i]
+            if b[0]:
+                if curr in b[2]:
+                    adjacent.append(i)
+                else:
+                    notAdjacent.append(i)
+            else:
+                if curr in b[1]:
+                    adjacent.append(i)
+                else:
+                    notAdjacent.append(i) 
+        
+        return adjacent, notAdjacent
+                      
+    def grabValidIndexes(self, inputList, outputList):
+        if inputList:
+            #outputList.append(inputList[0])
+            for index in inputList:
+                outputList.append(index)
+
 
     def isInSilhouette(self, y, intersects):
         inS = False
@@ -315,11 +374,14 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             hit, key, connected = self.getIntersection(isX, vert1, vert2, val, verts)
             
             if hit:
-                if connected in intersects.keys():
+                if key in intersects.keys():
                     intersects[key][1].append(connected)
                 else:
-                    intersects[key] = (hit, [connected])
-                    
+                    if connected:
+                        intersects[key] = (hit, [connected])
+                    else:
+                        intersects[key] = (hit, [])
+        
         return intersects
     
     def getIntersection(self, isX, vert1, vert2, val, verts):
@@ -333,17 +395,17 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         if isX:
             if v1.x == val:
                 hit = v1.y
-                key = vert1
+                key = (True, vert1)
                 connected = vert2
                 
             elif v2.x == val:
                 hit = v2.y
-                key = vert2
+                key = (True, vert2)
                 connected = vert1
             
             elif v1.x < val < v2.x or v2.x < val < v1.x:
                 hit = (v2.y-v1.y)*(val- v1.x)/(v2.x-v1.x) + v1.y
-                key = (vert1, vert2)
+                key = (False, vert1, vert2)
                 connected = None
 
         else:
