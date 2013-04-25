@@ -290,9 +290,29 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 v12 = projection[(i,j+1)]
                 v21 = projection[(i+1,j)]
                 
-                
-                    
-                
+                if v11:
+                    for intersect in v11.intersects.values():
+                        if v12:
+                            match = v12.findConnected(intersect)
+                            intersect.connectedPlusY = match
+                        if v21:    
+                            match = v21.findConnected(intersect)
+                            intersect.connectedPlusX = match
+        
+        for i in range(xsize-1):
+            for j in range(ysize-1):
+                if projection[(i,j)]:
+                    for intersect in projection[(i,j)].intersects.values():
+                        if intersect.connectedPlusY:
+                            if intersect.connectedPlusX:
+                                if intersect.connectedPlusY.connectedPlusX:
+                                    faces.append([intersect.index,
+                                                 intersect.connectedPlusX.index,
+                                                 intersect.connectedPlusY.connectedPlusX.index,
+                                                 intersect.connectedPlusY.index])
+                                                 
+
+
         #Finished        
         return verts, faces
     
@@ -389,15 +409,29 @@ class Intersect:
         
         self.connectedPlusX = None
         self.connectedPlusY = None
+        
+        self.connectedMinusX = None
+        self.connectedMinusY = None
 
     def __repr__(self):
         ret = "<Intersect at ("+str(self.i)+","+str(self.j)+") ID:"+str(self.index)+"> "
         ret += "\t vert #" + str(self.vert) + \
                " onVert:" + str(self.onVert) + \
                " connected=" + str(self.connected)
+
         #ret += "\n\t hit=" +str(self.hit) +  \
         #       " x=" + str(self.x) + \
         #       " y=" + str(self.y)
+
+        #if self.connectedPlusX:
+        #    ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusX.index)
+        #else:
+        #    ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+        #if self.connectedPlusY:
+        #    ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusY.index)
+        #else:
+        #    ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+
         return ret
 
     def intersectEdge(self, vert1, vert2, v1, v2):
@@ -490,20 +524,50 @@ class IntersectLine:
             intersect.setY(j, y)
             
     def findConnected(self, intersect):
+        #We always shortcircut because we shouldn't have more than one match
+        
         if intersect.x == self.x:
             #Check for common vertex
             if intersect.isOnVert():
                 return self.findVert(intersect.vert)
-            
+            else:
+                for vert in intersect.connected:
+                    ret = self.findVert(intersect.vert)
+                    if ret:
+                        return ret
+                
+        
         elif intersect.y == self.y:
             #Check for connected vertex
-            None
+            for vert in intersect.connected:
+                ret = self.findConnectedHelp(intersect.vert)
+                if ret:
+                   return ret
         else:
             print("invalid intersect to compare")
+        
+        #No Matches
+        return False
             
     def findVert(self, vert):
+        for intersect in self.intersects.values():
+            if intersect.isOnVert():
+                if intersect.vert == vert:
+                    return intersect
+            else:
+                for v in intersect.connected:
+                    if v == vert:
+                        return intersect
         return False
-    
+
+    def findConnectedHelp(self, vert):
+        for intersect in self.intersects.values():
+            for v in intersect.connected:
+                    if v == vert:
+                        return intersect
+        return False
+
+
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
     bpy.types.Object.silhouetteY = bpy.props.StringProperty(default = "")
