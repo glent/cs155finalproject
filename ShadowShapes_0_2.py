@@ -38,7 +38,7 @@ from copy import deepcopy
 from time import ctime
 print("-------------------",ctime(),"-------------------")
 
-ERROR_T = 0.0000001
+ERROR_T = 0.000001
 
 # ---- Properties ----
 def setProp(propName, data, object=None):
@@ -248,32 +248,35 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         xvals, yvals = self.findXYGrid(sy, xvals, yvals)
          
-        xmax = len(xvals)
+        xsize = len(xvals)
+        ysize = len(yvals)
         
         projectionX = []
         projection = {}
         
         #Generate Intersects
-        for i in range(xmax):
+        for i in range(xsize):
             xval = xvals[i]
             projectionX.append(IntersectLine(sx.data.vertices, 
                                             sx.data.edges, i, xval))
             
-            for j in range(len(yvals)):
+            for j in range(ysize):
                 yval = yvals[j]
                 projection[(i,j)] = deepcopy(projectionX[i])
                 projection[(i,j)].setY(j, yval)
                 
         #Generate Vertices
         index = 0
-        for intersectLine in projection.values():
-            for intersect in intersectLine.intersects.values():
-                intersect.index = index
-                verts.append([intersect.hit, intersect.x, intersect.y])
-                if 25 <= intersect.i <= 27 and intersect.j == 22:
-                    print(intersect)
-                
-                index += 1
+        
+        for i in range(xsize):
+            for j in range(ysize):
+                for intersect in projection[(i,j)].intersects.values():
+                    intersect.index = index
+                    verts.append([intersect.hit, intersect.x, intersect.y])
+                    if intersect.j == 22 and intersect.hit >= 0:
+                        print(intersect)
+                    
+                    index += 1
                 
         return verts, faces
     
@@ -345,8 +348,8 @@ class Intersect:
                " y " + str(self.y)
     
     def intersectEdge(self, vert1, vert2, v1, v2):
-        if v1.x == self.x:
-            if v2.x == self.x:
+        if abs(v1.x - self.x) < ERROR_T:
+            if abs(v2.x - self.x) < ERROR_T:
                 self.hit = v1.y
                 self.onVert = self.ON_BOTH
                 #Don't connect vertically
@@ -354,7 +357,7 @@ class Intersect:
                 self.hit = v1.y
                 self.onVert = self.ON_V1
                 self.connected.append(vert2)
-        elif v2.x == self.x:
+        elif abs(v2.x - self.x) < ERROR_T:
             self.hit = v2.y
             self.onVert = self.ON_V2
             self.connected.append(vert1)
