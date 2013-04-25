@@ -260,25 +260,62 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             projectionX.append(IntersectLine(sx.data.vertices, 
                                             sx.data.edges, i, xval))
             
+            iLine = IntersectLine(sy.data.vertices, sy.data.edges, i, xval)
+            
+            inList = self.findInsideList(iLine.intersects.values(), yvals)
+            
             for j in range(ysize):
                 yval = yvals[j]
-                projection[(i,j)] = deepcopy(projectionX[i])
-                projection[(i,j)].setY(j, yval)
-                
+                if inList[j]:
+                    projection[(i,j)] = deepcopy(projectionX[i])
+                    projection[(i,j)].setY(j, yval)
+                else:
+                    projection[(i,j)] = None
+
         #Generate Vertices
         index = 0
-        
         for i in range(xsize):
             for j in range(ysize):
-                for intersect in projection[(i,j)].intersects.values():
-                    intersect.index = index
-                    verts.append([intersect.hit, intersect.x, intersect.y])
-                    if intersect.j == 22 and intersect.hit >= 0:
-                        print(intersect)
-                    
-                    index += 1
-                
+                if projection[(i,j)]:
+                    for intersect in projection[(i,j)].intersects.values():
+                        intersect.index = index
+                        verts.append([intersect.hit, intersect.x, intersect.y])
+                        index += 1
+        
+        #Finished        
         return verts, faces
+    
+    def findInsideList(self, intersects, vals):
+        vMax = len(vals)
+        
+        inList = []
+        for v in vals:
+            inList.append(False)
+        
+        hits = []
+        
+        for i in intersects:
+            hits.append(i.hit)
+        
+        hitCount = len(hits)
+        if hitCount/2 != hitCount//2:
+            for hit in hits:
+                for vIndex in range(vMax):
+                    if abs(hit - vals[vIndex]) <  ERROR_T:
+                                inList[vIndex] = True   
+            return inList
+        
+        for hit in hits:
+            for vIndex in range(vMax):
+                if hit < vals[vIndex]:
+                    inList[vIndex] = not inList[vIndex]
+                
+        for hit in hits:
+            for vIndex in range(vMax):
+                if abs(hit - vals[vIndex]) <  ERROR_T:
+                            inList[vIndex] = True         
+        
+        return inList
     
     def findXYGrid(self, ob, xvals, yvals):
         for vert in ob.data.vertices:
