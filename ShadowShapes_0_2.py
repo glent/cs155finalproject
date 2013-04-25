@@ -229,7 +229,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             if (sy):
                 sy.select = True
             bpy.ops.object.delete()
-
+        
         #Actually generate the mesh
         addMesh(name+"Surface", verts, faces)
         context.scene.objects[name+"Surface"].location = loc
@@ -246,6 +246,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         xvals = []
         yvals = []
         
+        xvals, yvals = self.findXYGrid(sx, xvals, yvals)
         xvals, yvals = self.findXYGrid(sy, xvals, yvals)
          
         xsize = len(xvals)
@@ -282,6 +283,16 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         verts.append([intersect.hit, intersect.x, intersect.y])
                         index += 1
         
+        #Generate Faces
+        for i in range(xsize-1):
+            for j in range(ysize-1):
+                v11 = projection[(i,j)]
+                v12 = projection[(i,j+1)]
+                v21 = projection[(i+1,j)]
+                
+                
+                    
+                
         #Finished        
         return verts, faces
     
@@ -371,24 +382,29 @@ class Intersect:
         self.hit = None
         self.index = None
 
-        self.vert1 = None
-        self.vert2 = None
-        self.v1 = None
-        self.v2 = None
+        self.vert = None
+        self.vertCo = None
         self.onVert = None
         self.connected = []
+        
+        self.connectedPlusX = None
+        self.connectedPlusY = None
 
     def __repr__(self):
-        return "Index ("+str(self.i)+","+str(self.j)+")"+ \
-               " at hit " +str(self.hit) + \
-               " x " + str(self.x) + \
-               " y " + str(self.y)
-    
+        ret = "<Intersect at ("+str(self.i)+","+str(self.j)+") ID:"+str(self.index)+"> "
+        ret += "\t vert #" + str(self.vert) + \
+               " onVert:" + str(self.onVert) + \
+               " connected=" + str(self.connected)
+        #ret += "\n\t hit=" +str(self.hit) +  \
+        #       " x=" + str(self.x) + \
+        #       " y=" + str(self.y)
+        return ret
+
     def intersectEdge(self, vert1, vert2, v1, v2):
         if abs(v1.x - self.x) < ERROR_T:
             if abs(v2.x - self.x) < ERROR_T:
                 self.hit = v1.y
-                self.onVert = self.ON_BOTH
+                self.onVert = self.ON_V1
                 #Don't connect vertically
             else:
                 self.hit = v1.y
@@ -407,15 +423,24 @@ class Intersect:
         else:
             return None
 
-        self.vert1 = vert1
-        self.vert2 = vert2
-        self.v1 = v1
-        self.v2 = v2
+        if self.onVert == self.ON_V1:
+            self.vert = vert1
+            self.vertCo = v1
+        if self.onVert == self.ON_V2:
+            self.vert = vert2
+            self.vertCo = v2
+
         return self.hit
         
     def setY(self, j, y):
         self.j = j
         self.y = y
+        
+    def isOnVert(self):
+        if self.onVert == None:
+            print("intersect generated incorrectly")
+            return False
+        return (self.onVert == self.ON_V1 or self.onVert == self.ON_V2)
         
 
 class IntersectLine:
@@ -428,7 +453,13 @@ class IntersectLine:
         self.intersects = {}
         
         self.findIntersectLine(verts, edges)
-        
+    
+    def __repr__(self):
+        ret = "<IntersectLine at (" + str(self.i) + "," + str(self.j)+")>\n"
+        for i in self.intersects.values():
+            ret += "\t" + str(i)+"\n"
+        return ret
+       
     def findIntersectLine(self, verts, edges):
         
         for edge in edges:
@@ -441,8 +472,15 @@ class IntersectLine:
             for edge in edges:
                 intersect = Intersect(self.i, self.x)
                 hit = intersect.intersectEdge(vert1, vert2, v1, v2)
+                
                 if hit != None:
-                    self.intersects[hit] = intersect
+                    if hit in self.intersects:
+                        oldCon = self.intersects[hit].connected
+                        for vert in intersect.connected:
+                            if not vert in oldCon:
+                                oldCon.append(vert)
+                    else:
+                        self.intersects[hit] = intersect
                     
     def setY(self, j, y):
         self.j = j
@@ -450,6 +488,21 @@ class IntersectLine:
          
         for intersect in self.intersects.values():
             intersect.setY(j, y)
+            
+    def findConnected(self, intersect):
+        if intersect.x == self.x:
+            #Check for common vertex
+            if intersect.isOnVert():
+                return self.findVert(intersect.vert)
+            
+        elif intersect.y == self.y:
+            #Check for connected vertex
+            None
+        else:
+            print("invalid intersect to compare")
+            
+    def findVert(self, vert):
+        return False
     
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
