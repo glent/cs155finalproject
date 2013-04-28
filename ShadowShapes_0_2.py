@@ -198,7 +198,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
     bl_label = "Generate Mesh"
 
     def execute(self, context):
-        print("\n+++++++++++++++++",ctime(),"+++++++++++++++++")
+        #print("\n+++++++++++++++++",ctime(),"+++++++++++++++++")
         
         #Get Generator Object
         ob = context.object
@@ -283,22 +283,27 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         verts.append([intersect.hit, intersect.x, intersect.y])
                         index += 1
         
-        #Generate Faces
-        for i in range(xsize-1):
-            for j in range(ysize-1):
+        #Connect Edges
+        for i in range(xsize):
+            for j in range(ysize):
                 v11 = projection[(i,j)]
-                v12 = projection[(i,j+1)]
-                v21 = projection[(i+1,j)]
-                
                 if v11:
-                    for intersect in v11.intersects.values():
+                    if j != ysize-1:
+                        v12 = projection[(i,j+1)]
                         if v12:
-                            match = v12.findConnected(intersect)
-                            intersect.connectedPlusY = match
-                        if v21:    
-                            match = v21.findConnected(intersect)
-                            intersect.connectedPlusX = match
+                            for intersect in v11.intersects.values():
+                                match = v12.findConnected(intersect)
+                                intersect.connectedPlusY = match
+                                match.connectMinusY = intersect
+                    if i != xsize-1:
+                        v21 = projection[(i+1,j)]
+                        if v21:
+                            for intersect in v11.intersects.values():
+                                match = v21.findConnected(intersect)
+                                intersect.connectedPlusX = match
+                                match.connectMinusX = intersect
         
+        #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
                 if projection[(i,j)]:
@@ -310,9 +315,28 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                  intersect.connectedPlusX.index,
                                                  intersect.connectedPlusY.connectedPlusX.index,
                                                  intersect.connectedPlusY.index])
-                                                 
-
-
+                                else:
+                                    faces.append([intersect.index,
+                                                 intersect.connectedPlusX.index,
+                                                 intersect.connectedPlusY.index])
+                            elif intersect.connectedPlusY.connectedPlusX:
+                                faces.append([intersect.index,
+                                              intersect.connectedPlusY.connectedPlusX.index,
+                                              intersect.connectedPlusY.index])
+                        elif intersect.connectedPlusX:
+                            if intersect.connectedPlusX.connectedPlusY:
+                                faces.append([intersect.index,
+                                              intersect.connectedPlusX.index,
+                                              intersect.connectedPlusX.connectedPlusY.index])
+                                              
+                #Not sure why this last conditional isn't working others are behaving as expected.
+                elif projection[(i+1,j+1)]:
+                    for intersect in projection[(i+1,j+1)].intersects.values():
+                        if intersect.connectedMinusY and intersect.connectedMinusX:
+                            faces.append([intersect.index,
+                                          intersect.connectedMinusY.index,
+                                          intersect.connectedPlusX.connectedMinusX.index])
+        
         #Finished        
         return verts, faces
     
@@ -566,7 +590,6 @@ class IntersectLine:
                     if v == vert:
                         return intersect
         return False
-
 
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
