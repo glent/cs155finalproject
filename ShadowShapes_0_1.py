@@ -177,6 +177,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
     bl_label = "Generate Mesh"
 
     def execute(self, context):
+        print("\n+++++++++++++++++",ctime(),"+++++++++++++++++")
         ob = context.object
         name = ob.name
         loc = ob.location
@@ -203,8 +204,20 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             sy  = getObject(sxName)
             sx  = getObject(syName)
             
-            yvals = [vert.co.x for vert in sy.data.vertices]
-            zvals = [vert.co.y for vert in sy.data.vertices] 
+            yvals = set()
+            zvals = set()
+            
+            for vert in sy.data.vertices:
+                yvals.add(vert.co.x)
+                
+            for vert in sy.data.vertices:
+                zvals.add(vert.co.y)
+            
+            yvals = list(yvals)
+            zvals = list(zvals)
+            
+            yvals.sort()
+            zvals.sort()
             
             ymax = len(yvals)
            
@@ -217,14 +230,18 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 yval = yvals[i]
                 
                 #Precompute Intersections
-                yintersects = self.getLineIntersections(True, yval, 
-                                                        sx.data.vertices, 
-                                                        sx.data.edges)
+                #yintersects = self.getLineIntersections(True, yval, 
+                #                                        sx.data.vertices, 
+                #                                        sx.data.edges)
                 
                 xintersects = self.getLineIntersections(True, yval, 
                                                         sy.data.vertices, 
                                                         sy.data.edges)
+                #Debug
+                print(xintersects)
+                yintersects = xintersects
                 
+                #Grid of faces
                 for j in range(len(zvals)):
                     zval = zvals[j]
                     
@@ -235,7 +252,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         for key,val in xintersects.items():
                             xval = val[0]
                             
-                            
+                            #Generate Vertex
+                            print("add vertex", [xval,zval,yval], "index", index)
                             verts.append([xval,zval,yval])
                             temp_verts.append(index)
                             
@@ -248,7 +266,9 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                      
                         ij_to_index[(i,j)] = temp_verts
                         
-                        #"""
+                        
+                        
+                        
                         #Generate Faces
                         if i != 0 and j != 0:
                             a = ij_to_index[(i,j)]
@@ -264,15 +284,31 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                             self.grabValidIndexes(c, indexList)
                             
                             if len(indexList) > 2:
+                                print("\nconnected", connected)
+                                print("\nindexList", indexList)
                                 face, remainder = self.findConnected(indexList[0], indexList, connected)
+                                print("potential face", face,"remain:", remainder)
                                 if len(face) > 2:
+                                    tmp = face[0]
+                                    face[0] = face[1]
+                                    face[1] = tmp
                                     faces.append(face)
-                                
-                                while remainder and face:
-                                    face, remainder = self.findConnected(remainder[0], remainder, connected)
+                                    
+                                    
+                                index = 0
+                                while remainder and index < len(remainder):
+                                    face, remainder = self.findConnected(remainder[index], remainder, connected)
+                                    print("potential face", face,"remain:", remainder)
                                     if len(face) > 2:
+                                        tmp = face[0]
+                                        face[0] = face[1]
+                                        face[1] = tmp
                                         faces.append(face)
-                        #"""
+                                        
+                                    index += 1
+                                        
+                                        
+                        
                     else:
                         ij_to_index[(i,j)] = False
                                 
@@ -286,6 +322,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         #Actually generate the mesh
         self.addMesh(name+"Surface", verts, faces)
+        context.scene.objects[name+"Surface"].location = loc
+        
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
@@ -311,7 +349,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             return adj, remainder
         
         else:
-            print("something unexpedted happend")
             return [], []                
                 
     def findAdjacent(self, curr, indexList, connected):
@@ -384,18 +421,28 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         for edge in edges:
             vert1 = edge.vertices[0]
             vert2 = edge.vertices[1]
-                
+
             hit, key, connected = self.getIntersection(isX, vert1, vert2, val, verts)
+            print(hit, key, connected)
             
             if hit:
                 if key in intersects.keys():
-                    intersects[key][1].append(connected)
+                    if connected:
+                        intersects[key][1].append(connected)
+                        intersects[key][0] = hit
                 else:
                     if connected:
-                        intersects[key] = (hit, [connected])
+                        intersects[key] = [hit, [connected]]
                     else:
-                        intersects[key] = (hit, [])
-        
+                        intersects[key] = [hit, []]
+                
+                #if connected and key[0]:
+                #    cKey = (True, connected)
+                #    if  cKey in intersects.keys():
+                #        intersects[cKey][1].append(key[1])
+                #    else:
+                #        intersects[cKey] = [None, [key[1]]]
+
         return intersects
     
     def getIntersection(self, isX, vert1, vert2, val, verts):
@@ -408,10 +455,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         if isX:
             if v1.x == val:
-                hit = v1.y
-                key = (True, vert1)
-                connected = vert2
-                
+                if v2.x == val:
+                    hit = v1.y
+                    key = (True, vert1)
+                    connected = None      #Don't connect vertical surfaces
+                else:
+                    hit = v1.y
+                    key = (True, vert1)
+                    connected = vert2
+                    
             elif v2.x == val:
                 hit = v2.y
                 key = (True, vert2)
