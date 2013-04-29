@@ -294,14 +294,16 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                             for intersect in v11.intersects.values():
                                 match = v12.findConnected(intersect)
                                 intersect.connectedPlusY = match
-                                match.connectMinusY = intersect
+                                if (match):
+                                    match.connectedMinusY = intersect
                     if i != xsize-1:
                         v21 = projection[(i+1,j)]
                         if v21:
                             for intersect in v11.intersects.values():
                                 match = v21.findConnected(intersect)
                                 intersect.connectedPlusX = match
-                                match.connectMinusX = intersect
+                                if (match):
+                                    match.connectedMinusX = intersect
         
         #Generate Faces
         for i in range(xsize-1):
@@ -393,7 +395,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 newXvals.append(xvals[i+1])
         
         newYvals = []
-        newYvals.append(xvals[0])
+        newYvals.append(yvals[0])
         
         ymax = len(yvals)
         for i in range(ymax-1):
