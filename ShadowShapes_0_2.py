@@ -548,7 +548,7 @@ class IntersectLine:
             # Correctly set isAcross so we can to point in polygon correctly
             for intersect in self.intersects.values():
                 if intersect.onVert == intersect.ON_V1 and intersect.ON_V2:
-                    if len(intersect.connected) == 2:D
+                    if len(intersect.connected) == 2:
                         c1 = verts[intersect.connected[0]].co
                         c2 = verts[intersect.connected[1]].co
                         
