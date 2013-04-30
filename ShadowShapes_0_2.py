@@ -308,11 +308,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
-                
-                if 10 < i < 12 and 10 <= j <= 12:
-                    print( projection[(i,j)])
-                
-                
                 if projection[(i,j)]:
                     for intersect in projection[(i,j)].intersects.values():
                         if intersect.connectedPlusY:
@@ -595,9 +590,14 @@ class IntersectLine:
         elif abs(intersect.y - self.y) < ERROR_T:
             #Check for connected vertex
             for vert in intersect.connected:
-                ret = self.findConnectedHelp(   vert)
+                ret = self.findConnectedHelp(vert)
                 if ret:
                    return ret
+            
+            ret = self.findConnectedHelp(intersect.vert)
+            if ret:
+                return ret
+               
         else:
             print("invalid intersect to compare")
         
