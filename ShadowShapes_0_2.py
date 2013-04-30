@@ -308,6 +308,11 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
+                
+                if 10 < i < 12 and 10 <= j <= 12:
+                    print( projection[(i,j)])
+                
+                
                 if projection[(i,j)]:
                     for intersect in projection[(i,j)].intersects.values():
                         if intersect.connectedPlusY:
@@ -353,7 +358,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         hits2 = []
         
         for i in intersects:
-            print(i)
             if i.isAcross:
                 hits.append(i.hit)
             else:
@@ -466,9 +470,9 @@ class Intersect:
         else:
             ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
         if self.connectedPlusY:
-            ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusY.index)
+            ret += "\n\tPlusY Connection ID: " + str(self.connectedPlusY.index)
         else:
-            ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+            ret += "\n\tPlusY Connection: " + str(self.connectedPlusX)
 
 
         return ret
@@ -561,12 +565,6 @@ class IntersectLine:
                     if len(intersect.connected) == 2:
                         c1 = verts[intersect.connected[0]].co
                         c2 = verts[intersect.connected[1]].co
-                        
-                        if intersect.vert == 0 or intersect.vert == 4:
-                            print(c1.x)
-                            print(c2.x)
-                            print(intersect.x)
-                            
                         if c1.x < intersect.x and c2.x < intersect.x:
                             intersect.isAcross = False
                         elif c1.x > intersect.x and c2.x > intersect.x:
@@ -583,21 +581,21 @@ class IntersectLine:
     def findConnected(self, intersect):
         #We always shortcircut because we shouldn't have more than one match
         
-        if intersect.x == self.x:
+        if abs(intersect.x - self.x) < ERROR_T:
             #Check for common vertex
             if intersect.isOnVert():
                 return self.findVert(intersect.vert)
             else:
                 for vert in intersect.connected:
-                    ret = self.findVert(intersect.vert)
+                    #I don't think this next line is right
+                    ret = self.findVert(vert)
                     if ret:
                         return ret
                 
-        
-        elif intersect.y == self.y:
+        elif abs(intersect.y - self.y) < ERROR_T:
             #Check for connected vertex
             for vert in intersect.connected:
-                ret = self.findConnectedHelp(intersect.vert)
+                ret = self.findConnectedHelp(   vert)
                 if ret:
                    return ret
         else:
