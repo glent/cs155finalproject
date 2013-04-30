@@ -350,11 +350,19 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             inList.append(False)
         
         hits = []
+        hits2 = []
         
         for i in intersects:
+            print(i)
             if i.isAcross:
                 hits.append(i.hit)
+            else:
+                hits2.append(i.hit)
         
+        for vIndex in range(vMax):
+            if vals[vIndex] in hits2:
+                inList[vIndex] = True        
+                
         #hitCount = len(hits)
         #if hitCount/2 != hitCount//2:
         #    for hit in hits:
@@ -448,18 +456,20 @@ class Intersect:
                " onVert:" + str(self.onVert) + \
                " connected=" + str(self.connected)
 
-        #ret += "\n\t hit=" +str(self.hit) +  \
-        #       " x=" + str(self.x) + \
-        #       " y=" + str(self.y)
+        ret += "\n\t hit=" +str(self.hit) +  \
+               " x=" + str(self.x) + \
+               " y=" + str(self.y) + \
+               " isAcross=" + str(self.isAcross)
 
-        #if self.connectedPlusX:
-        #    ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusX.index)
-        #else:
-        #    ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
-        #if self.connectedPlusY:
-        #    ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusY.index)
-        #else:
-        #    ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+        if self.connectedPlusX:
+            ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusX.index)
+        else:
+            ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+        if self.connectedPlusY:
+            ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusY.index)
+        else:
+            ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+
 
         return ret
 
@@ -547,11 +557,18 @@ class IntersectLine:
 
             # Correctly set isAcross so we can to point in polygon correctly
             for intersect in self.intersects.values():
-                if intersect.onVert == intersect.ON_V1 and intersect.ON_V2:
-                    if len(intersect.connected) == 2:D
+                
+                
+                if intersect.onVert == intersect.ON_V1 or intersect.onVert == intersect.ON_V2:
+                    if len(intersect.connected) == 2:
                         c1 = verts[intersect.connected[0]].co
                         c2 = verts[intersect.connected[1]].co
                         
+                        if intersect.vert == 0 or intersect.vert == 4:
+                            print(c1.x)
+                            print(c2.x)
+                            print(intersect.x)
+                            
                         if c1.x < intersect.x and c2.x < intersect.x:
                             intersect.isAcross = False
                         elif c1.x > intersect.x and c2.x > intersect.x:
