@@ -337,7 +337,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         if intersect.connectedMinusY and intersect.connectedMinusX:
                             faces.append([intersect.index,
                                           intersect.connectedMinusY.index,
-                                          intersect.connectedPlusX.connectedMinusX.index])
+                                          intersect.connectedMinusX.index])
         
         #Finished        
         return verts, faces
