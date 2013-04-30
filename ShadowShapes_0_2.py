@@ -352,15 +352,16 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         hits = []
         
         for i in intersects:
-            hits.append(i.hit)
+            if i.isAcross:
+                hits.append(i.hit)
         
-        hitCount = len(hits)
-        if hitCount/2 != hitCount//2:
-            for hit in hits:
-                for vIndex in range(vMax):
-                    if abs(hit - vals[vIndex]) <  ERROR_T:
-                                inList[vIndex] = True   
-            return inList
+        #hitCount = len(hits)
+        #if hitCount/2 != hitCount//2:
+        #    for hit in hits:
+        #        for vIndex in range(vMax):
+        #            if abs(hit - vals[vIndex]) <  ERROR_T:
+        #                        inList[vIndex] = True   
+        #    return inList
         
         for hit in hits:
             for vIndex in range(vMax):
@@ -432,7 +433,9 @@ class Intersect:
         self.vertCo = None
         self.onVert = None
         self.connected = []
-        
+
+        self.isAcross = True
+
         self.connectedPlusX = None
         self.connectedPlusY = None
         
@@ -541,7 +544,20 @@ class IntersectLine:
                                 oldCon.append(vert)
                     else:
                         self.intersects[hit] = intersect
-                    
+
+            # Correctly set isAcross so we can to point in polygon correctly
+            for intersect in self.intersects.values():
+                if intersect.onVert == intersect.ON_V1 and intersect.ON_V2:
+                    if len(intersect.connected) == 2:D
+                        c1 = verts[intersect.connected[0]].co
+                        c2 = verts[intersect.connected[1]].co
+                        
+                        if c1.x < intersect.x and c2.x < intersect.x:
+                            intersect.isAcross = False
+                        elif c1.x > intersect.x and c2.x > intersect.x:
+                            intersect.isAcross = False
+
+                                    
     def setY(self, j, y):
         self.j = j
         self.y = y
