@@ -292,55 +292,112 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         v12 = projection[(i,j+1)]
                         if v12:
                             for intersect in v11.intersects.values():
-                                match = v12.findConnected(intersect)
-                                intersect.connectedPlusY = match
-                                if (match):
-                                    match.connectedMinusY = intersect
+                                matches = v12.findConnected(intersect)
+                                intersect.connectedPlusY = matches
+                                for match in matches:
+                                    match.connectedMinusY.append(intersect)
+                                    
                     if i != xsize-1:
                         v21 = projection[(i+1,j)]
                         if v21:
                             for intersect in v11.intersects.values():
-                                match = v21.findConnected(intersect)
-                                intersect.connectedPlusX = match
-                                if (match):
-                                    match.connectedMinusX = intersect
+                                matches = v21.findConnected(intersect)
+                                intersect.connectedPlusX = matches
+                                for match in matches:
+                                    match.connectedMinusX.append(intersect)
         
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
-                if projection[(i,j)]:
-                    for intersect in projection[(i,j)].intersects.values():
-                        if intersect.connectedPlusY:
-                            if intersect.connectedPlusX:
-                                if intersect.connectedPlusY.connectedPlusX:
-                                    faces.append([intersect.index,
-                                                 intersect.connectedPlusX.index,
-                                                 intersect.connectedPlusY.connectedPlusX.index,
-                                                 intersect.connectedPlusY.index])
-                                else:
-                                    faces.append([intersect.index,
-                                                 intersect.connectedPlusX.index,
-                                                 intersect.connectedPlusY.index])
-                            elif intersect.connectedPlusY.connectedPlusX:
-                                faces.append([intersect.index,
-                                              intersect.connectedPlusY.connectedPlusX.index,
-                                              intersect.connectedPlusY.index])
-                        elif intersect.connectedPlusX:
-                            if intersect.connectedPlusX.connectedPlusY:
-                                faces.append([intersect.index,
-                                              intersect.connectedPlusX.index,
-                                              intersect.connectedPlusX.connectedPlusY.index])
-                                              
-                #Not sure why this last conditional isn't working others are behaving as expected.
-                elif projection[(i+1,j+1)]:
-                    for intersect in projection[(i+1,j+1)].intersects.values():
-                        if intersect.connectedMinusY and intersect.connectedMinusX:
-                            faces.append([intersect.index,
-                                          intersect.connectedMinusY.index,
-                                          intersect.connectedMinusX.index])
+                if i == 0 and j == 0:
+                    print(projection[(i,j)])
+                    print(projection[(i+1,j)])
+                    print(projection[(i,j+1)])
+                    print(projection[(i+1,j+1)])
+                
+                faces += self.detectFaceForSquare(projection[(i,j)], projection[(i+1,j+1)])
         
         #Finished        
         return verts, faces
+    
+    
+    
+    def detectFaceForSquare(self, swProjection, neProjection):
+        faces = []
+        
+        #Starting With the bottom left corner of the square
+        if swProjection:
+            for sw in swProjection.intersects.values():
+                
+                #Search North over ALL 
+                if sw.connectedPlusY:
+                    for nw in sw.connectedPlusY:
+                         
+                        #Search West over ALL
+                        if nw.connectedPlusX:
+                            for ne in nw.connectedPlusX:
+                                
+                                #Search South over FIRST
+                                if ne.connectedMinusY:
+                                    for se in ne.connectedMinusY:
+                                        #Make Quad
+                                        faces.append([sw.index,
+                                                      nw.index,
+                                                      ne.index,
+                                                      se.index])
+                                else:
+                                    #Make Tri
+                                    faces.append([sw.index,
+                                                  nw.index,
+                                                  ne.index])
+                        
+                        #Search North over ALL 
+                        elif sw.connectedPlusX:
+                            for se in sw.connectedPlusX:
+                                #Make Tri
+                                faces.append([sw.index,
+                                              nw.index,
+                                              se.index])
+                    
+                #Search West over ALL
+                elif sw.connectedPlusX:
+                    for se in sw.connectedPlusX:
+                        
+                        #Search North over All
+                        if se.connectedPlusY:
+                            for ne in se.connectedPlusY:
+                                #Make Tri
+                                faces.append([sw.index,
+                                              se.index,
+                                              ne.index])
+        
+        return faces
+                        
+                            
+#                    
+#                        else:
+#                            faces.append([sw.index,
+#                                          sw.connectedPlusX.index,
+#                                          sw.connectedPlusY.index])
+#                    elif sw.connectedPlusY.connectedPlusX:
+#                        faces.append([sw.index,
+#                                      sw.connectedPlusY.connectedPlusX.index,
+#                                      sw.connectedPlusY.index])
+#                elif sw.connectedPlusX:
+#                    
+#                    if sw.connectedPlusX.connectedPlusY:
+#                        faces.append([sw.index,
+#                                      sw.connectedPlusX.index,
+#                                      sw.connectedPlusX.connectedPlusY.index])
+#
+#        #Starting with the top left corner
+#        elif projection[(i+1,j+1)]:
+#            for ne in projection[(i+1,j+1)].intersects.values():
+#                if ne.connectedMinusY and ne.connectedMinusX:
+#                    faces.append([ne.index,
+#                                  ne.connectedMinusY.index,
+#                                  ne.connectedMinusX.index])
+    
     
     def findInsideList(self, intersects, vals):
         vMax = len(vals)
@@ -360,15 +417,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         
         for vIndex in range(vMax):
             if vals[vIndex] in hits2:
-                inList[vIndex] = True        
-                
-        #hitCount = len(hits)
-        #if hitCount/2 != hitCount//2:
-        #    for hit in hits:
-        #        for vIndex in range(vMax):
-        #            if abs(hit - vals[vIndex]) <  ERROR_T:
-        #                        inList[vIndex] = True   
-        #    return inList
+                inList[vIndex] = True
         
         for hit in hits:
             for vIndex in range(vMax):
@@ -443,11 +492,11 @@ class Intersect:
 
         self.isAcross = True
 
-        self.connectedPlusX = None
-        self.connectedPlusY = None
+        self.connectedPlusX = []
+        self.connectedPlusY = []
         
-        self.connectedMinusX = None
-        self.connectedMinusY = None
+        self.connectedMinusX = []
+        self.connectedMinusY = []
 
     def __repr__(self):
         ret = "<Intersect at ("+str(self.i)+","+str(self.j)+") ID:"+str(self.index)+"> "
@@ -461,11 +510,15 @@ class Intersect:
                " isAcross=" + str(self.isAcross)
 
         if self.connectedPlusX:
-            ret += "\n\tPlusX Connection ID: " + str(self.connectedPlusX.index)
+            ret += "\n\tPlusX Connection ID: " 
+            for i in self.connectedPlusX:
+                ret += str(i.index)
         else:
             ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
         if self.connectedPlusY:
-            ret += "\n\tPlusY Connection ID: " + str(self.connectedPlusY.index)
+            ret += "\n\tPlusY Connection ID: " 
+            for i in self.connectedPlusY:
+                ret += str(i.index)
         else:
             ret += "\n\tPlusY Connection: " + str(self.connectedPlusX)
 
@@ -533,7 +586,6 @@ class IntersectLine:
         return ret
        
     def findIntersectLine(self, verts, edges):
-        
         for edge in edges:
             vert1 = edge.vertices[0]
             vert2 = edge.vertices[1]
@@ -574,19 +626,20 @@ class IntersectLine:
             intersect.setY(j, y)
             
     def findConnected(self, intersect):
-        #We always shortcircut because we shouldn't have more than one match
+        #Should only have one match so always short circut
         
+        #intersect is to our left or right
         if abs(intersect.x - self.x) < ERROR_T:
             #Check for common vertex
             if intersect.isOnVert():
                 return self.findVert(intersect.vert)
             else:
                 for vert in intersect.connected:
-                    #I don't think this next line is right
                     ret = self.findVert(vert)
                     if ret:
                         return ret
-                
+        
+        #Intersct is abover or below us   
         elif abs(intersect.y - self.y) < ERROR_T:
             #Check for connected vertex
             for vert in intersect.connected:
@@ -597,30 +650,37 @@ class IntersectLine:
             ret = self.findConnectedHelp(intersect.vert)
             if ret:
                 return ret
-               
+        
+        #Intersect is on a diagonal with us 
         else:
             print("invalid intersect to compare")
         
         #No Matches
-        return False
+        return []
             
     def findVert(self, vert):
+        matches = []
+        
         for intersect in self.intersects.values():
             if intersect.isOnVert():
                 if intersect.vert == vert:
-                    return intersect
+                    matches.append(intersect)
             else:
                 for v in intersect.connected:
                     if v == vert:
-                        return intersect
-        return False
+                        matches.append(intersect)
+        
+        return matches
 
     def findConnectedHelp(self, vert):
+        matches = []
+        
         for intersect in self.intersects.values():
             for v in intersect.connected:
                     if v == vert:
-                        return intersect
-        return False
+                        matches.append(intersect)
+        
+        return matches
 
 def register():
     bpy.types.Object.silhouetteX = bpy.props.StringProperty(default = "")
