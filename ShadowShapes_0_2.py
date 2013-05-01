@@ -309,13 +309,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
-                if i == 0 and j == 0:
-                    print(projection[(i,j)])
-                    print(projection[(i+1,j)])
-                    print(projection[(i,j+1)])
-                    print(projection[(i+1,j+1)])
-                
-                faces += self.detectFaceForSquare(projection[(i,j)], projection[(i+1,j+1)])
+                faces += self.detectFaceForSquare(projection[(i,j)], 
+                                                  projection[(i+1,j+1)])
         
         #Finished        
         return verts, faces
@@ -333,7 +328,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 if sw.connectedPlusY:
                     for nw in sw.connectedPlusY:
                          
-                        #Search West over ALL
+                        #Search East over ALL
                         if nw.connectedPlusX:
                             for ne in nw.connectedPlusX:
                                 
@@ -359,17 +354,34 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                               nw.index,
                                               se.index])
                     
-                #Search West over ALL
+                #Search East over ALL
                 elif sw.connectedPlusX:
                     for se in sw.connectedPlusX:
                         
-                        #Search North over All
+                        #Search North over ALL
                         if se.connectedPlusY:
                             for ne in se.connectedPlusY:
                                 #Make Tri
                                 faces.append([sw.index,
                                               se.index,
                                               ne.index])
+        
+        #Start at far corner                              
+        elif neProjection:
+            for ne in neProjection.intersects.values():
+                
+                #Search South over ALL
+                if ne.connectedMinusY:
+                    for se in ne.connectedMinusY:
+                        
+                        #Search West over ALL
+                        if ne.connectedMinusX:
+                            for nw in ne.connectedMinusX:
+                                
+                                #Make Tri
+                                faces.append([se.index,
+                                              ne.index,
+                                              nw.index])
         
         return faces
                         
