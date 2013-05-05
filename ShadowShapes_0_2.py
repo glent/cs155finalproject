@@ -246,21 +246,26 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         xvals = []
         yvals = []
         
-        xvals, yvals = self.findXYGrid(sx, xvals, yvals)
-        xvals, yvals = self.findXYGrid(sy, xvals, yvals)
-         
-        xsize = len(xvals)
-        ysize = len(yvals)
-        
         projectionX = []
         projection = {}
+        
+        #Generate Initial Grid markings
+        xvals, yvals = self.findXYGrid(sx, xvals, yvals)
+        xvals, yvals = self.findXYGrid(sy, xvals, yvals)
+        
+        xext, yext = self.findExtraGridMarkings(sy.data.vertices, sy.data.edges, sx.data.vertices, 
+                                                sx.data.edges, xvals, yvals)
+        
+        xsize = len(xvals)
+        ysize = len(yvals)
         
         #Generate Intersects
         for i in range(xsize):
             xval = xvals[i]
+            
             projectionX.append(IntersectLine(sx.data.vertices, 
                                             sx.data.edges, i, xval))
-            
+             
             iLine = IntersectLine(sy.data.vertices, sy.data.edges, i, xval)
             
             inList = self.findInsideList(iLine.intersects.values(), yvals)
@@ -283,6 +288,20 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         verts.append([intersect.hit, intersect.x, intersect.y])
                         index += 1
         
+        for lineList in xext.values():
+            for line in lineList:
+                for intersect in line.intersects.values():
+                    intersect.index = index
+                    verts.append([intersect.hit, intersect.x, intersect.y])
+                    index += 1
+                    
+        #for lineList in yext.values():
+        #    for line in lineList:
+        #        for intersect in line.intersects.values():
+        #            intersect.index = index
+        #            verts.append([intersect.hit, intersect.x, intersect.y])
+        #            index += 1
+            
         #Connect Edges
         for i in range(xsize):
             for j in range(ysize):
@@ -309,15 +328,67 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
-                faces += self.detectFaceForSquare(projection[(i,j)], 
+                faces += self.detectFaceForSquare(verts,
+                                                  projection[(i,j)], 
                                                   projection[(i+1,j+1)])
         
         #Finished        
         return verts, faces
     
+    def findExtraGridMarkings(self, verts, edges, verts2, edges2, xvals, yvals):
+        
+        xExtra = {}
+        yExtra = {}
+        
+        for edge in edges:
+            vert1 = edge.vertices[0]
+            vert2 = edge.vertices[1]
+            
+            v1 = verts[vert1].co
+            v2 = verts[vert2].co
+            
+            for x in xvals:
+                if v1.x+ERROR_T < x < v2.x-ERROR_T or \
+                   v2.x+ERROR_T < x < v1.x-ERROR_T:
+                    hit = (v2.y-v1.y)*(x- v1.x)/(v2.x-v1.x) + v1.y
+                    
+                    isect = IntersectLine(verts2, edges2, None, x)
+                    isect.setY(-1, hit)
+                    
+                    if x in yExtra:
+                        xExtra[x].append(isect)
+                    else:
+                        xExtra[x] = [isect]
+                    
+            for y in yvals:
+                if v1.y+ERROR_T < y < v2.y-ERROR_T or \
+                   v2.y+ERROR_T < y < v1.y-ERROR_T:
+                    hit = (v2.x-v1.x)*(y- v1.y)/(v2.y-v1.y) + v1.x
+                    
+                    isect = IntersectLine(verts2, edges2, None, hit)
+                    isect.setY(-1, x)
+                    
+                    if y in yExtra:
+                        yExtra[y].append(isect)
+                    else:
+                        yExtra[y] = [isect]
+                
+        return xExtra, yExtra
     
+    def removeDoubles(self, list):
+        list.sort()
+        max = len(list)
+        newList = []
+        
+        newList.append(list[0])
+        
+        for i in range(max-1):
+            if abs(list[i] - list[i+1]) > ERROR_T:
+                newList.append(list[i+1])
+                
+        return newList
     
-    def detectFaceForSquare(self, swProjection, neProjection):
+    def detectFaceForSquare(self, verts, swProjection, neProjection):
         faces = []
         
         #Starting With the bottom left corner of the square
@@ -384,33 +455,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                               nw.index])
         
         return faces
-                        
-                            
-#                    
-#                        else:
-#                            faces.append([sw.index,
-#                                          sw.connectedPlusX.index,
-#                                          sw.connectedPlusY.index])
-#                    elif sw.connectedPlusY.connectedPlusX:
-#                        faces.append([sw.index,
-#                                      sw.connectedPlusY.connectedPlusX.index,
-#                                      sw.connectedPlusY.index])
-#                elif sw.connectedPlusX:
-#                    
-#                    if sw.connectedPlusX.connectedPlusY:
-#                        faces.append([sw.index,
-#                                      sw.connectedPlusX.index,
-#                                      sw.connectedPlusX.connectedPlusY.index])
-#
-#        #Starting with the top left corner
-#        elif projection[(i+1,j+1)]:
-#            for ne in projection[(i+1,j+1)].intersects.values():
-#                if ne.connectedMinusY and ne.connectedMinusX:
-#                    faces.append([ne.index,
-#                                  ne.connectedMinusY.index,
-#                                  ne.connectedMinusX.index])
-    
-    
+
     def findInsideList(self, intersects, vals):
         vMax = len(vals)
         
@@ -628,7 +673,6 @@ class IntersectLine:
                             intersect.isAcross = False
                         elif c1.x > intersect.x and c2.x > intersect.x:
                             intersect.isAcross = False
-
                                     
     def setY(self, j, y):
         self.j = j
