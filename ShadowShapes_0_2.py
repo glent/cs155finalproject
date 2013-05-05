@@ -295,12 +295,12 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     verts.append([intersect.hit, intersect.x, intersect.y])
                     index += 1
                     
-        #for lineList in yext.values():
-        #    for line in lineList:
-        #        for intersect in line.intersects.values():
-        #            intersect.index = index
-        #            verts.append([intersect.hit, intersect.x, intersect.y])
-        #            index += 1
+        for lineList in yext.values():
+            for line in lineList:
+                for intersect in line.intersects.values():
+                    intersect.index = index
+                    verts.append([intersect.hit, intersect.x, intersect.y])
+                    index += 1
             
         #Connect Edges
         for i in range(xsize):
@@ -366,7 +366,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     hit = (v2.x-v1.x)*(y- v1.y)/(v2.y-v1.y) + v1.x
                     
                     isect = IntersectLine(verts2, edges2, None, hit)
-                    isect.setY(-1, x)
+                    isect.setY(-1, y)
                     
                     if y in yExtra:
                         yExtra[y].append(isect)
