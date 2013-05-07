@@ -325,6 +325,49 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 for match in matches:
                                     match.connectedMinusX.append(intersect)
         
+        #Connect Edges to Extra Verts.
+        for lineList in xext.values():
+            for line in lineList:
+                afterXIndex = 0
+                
+                for i in range(xsize):
+                    xval = xvals[i]
+                    if line.x < xval:
+                        afterXIndex = i
+                        break
+                
+                for j in range(ysize):
+                    diff = yvals[j] - line.y
+                    
+                    if diff < ERROR_T:
+                        print("yintersect stuff: ", diff)
+                        yindex = j
+                
+                line.i = afterXIndex - 0.5
+                line.j = yindex
+                
+                afterLine = projection[(afterXIndex,yindex)]
+                if afterLine:
+                    print(line)
+                    print(afterLine)
+                    for intersect in line.intersects.values():
+                        matches = afterLine.findConnected(intersect)
+                        intersect.connectedPlusX = matches
+                        for match in matches:
+                            print(match)
+                            match.connectedMinusX.append(intersect)
+                
+                
+                beforeXIndex = afterXIndex -1
+                if beforeXIndex >= 0:
+                    beforeLine = projection[(beforeXIndex,yindex)]
+                    if beforeLine:
+                        for intersect in line.intersects.values():
+                            matches = beforeLine.findConnected(intersect)
+                            intersect.connectedPlusX = matches
+                            for match in matches:
+                                match.connectedMinusX.append(intersect)
+        
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
@@ -353,9 +396,9 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     hit = (v2.y-v1.y)*(x- v1.x)/(v2.x-v1.x) + v1.y
                     
                     isect = IntersectLine(verts2, edges2, None, x)
-                    isect.setY(-1, hit)
+                    isect.setY(None, hit)
                     
-                    if x in yExtra:
+                    if x in xExtra:
                         xExtra[x].append(isect)
                     else:
                         xExtra[x] = [isect]
@@ -366,7 +409,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     hit = (v2.x-v1.x)*(y- v1.y)/(v2.y-v1.y) + v1.x
                     
                     isect = IntersectLine(verts2, edges2, None, hit)
-                    isect.setY(-1, y)
+                    isect.setY(None, y)
                     
                     if y in yExtra:
                         yExtra[y].append(isect)
@@ -572,12 +615,28 @@ class Intersect:
                 ret += str(i.index)
         else:
             ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
+        
         if self.connectedPlusY:
             ret += "\n\tPlusY Connection ID: " 
             for i in self.connectedPlusY:
                 ret += str(i.index)
         else:
-            ret += "\n\tPlusY Connection: " + str(self.connectedPlusX)
+            ret += "\n\tPlusY Connection: " + str(self.connectedPlusY)
+
+        if self.connectedMinusX:
+            ret += "\n\tMinusX Connection ID: " 
+            for i in self.connectedMinusX:
+                ret += str(i.index)
+        else:
+            ret += "\n\tMinusX Connection: " + str(self.connectedMinusX)
+        
+        if self.connectedMinusY:
+            ret += "\n\tMinusY Connection ID: " 
+            for i in self.connectedMinusY:
+                ret += str(i.index)
+        else:
+            ret += "\n\tMinusY Connection: " + str(self.connectedMinusY)
+        
 
 
         return ret
