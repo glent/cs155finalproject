@@ -120,7 +120,7 @@ def selectObjectName(objectName):
 def getSelectedObjects():
     return [ob for ob in bpy.data.objects if ob.select]
 
-def addMesh(name, verts, faces):
+def addMesh(name, verts, edges, faces):
         if name:
             me = bpy.data.meshes.new(name+'Mesh')
             ob = bpy.data.objects.new(name, me)
@@ -131,7 +131,7 @@ def addMesh(name, verts, faces):
             scn.objects.active = ob
             ob.select = True
          
-            me.from_pydata(verts, [], faces)
+            me.from_pydata(verts, edges, faces)
             
             me.update()
             
@@ -221,7 +221,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             sy  = getObject(sxName)
             sx  = getObject(syName)
             
-            verts, faces = self.getGeometry(sx, sy)
+            verts, edges, faces = self.getGeometry(sx, sy)
             
             #Delete temporary copies of silhouettes
             if (sx):
@@ -231,7 +231,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             bpy.ops.object.delete()
         
         #Actually generate the mesh
-        addMesh(name+"Surface", verts, faces)
+        addMesh(name+"Surface", verts, edges, faces)
         context.scene.objects[name+"Surface"].location = loc
         
         context.scene.objects.active = ob
@@ -241,6 +241,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
     
     def getGeometry(self, sx, sy):
         verts = []
+        edges = []
         faces = []
         
         xvals = []
@@ -326,9 +327,10 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                     match.connectedMinusX.append(intersect)
         
         #Connect Edges to Extra Verts.
-        for lineList in xext.values():
+        for lineList in yext.values():
             for line in lineList:
                 afterXIndex = 0
+                yindex = 0
                 
                 for i in range(xsize):
                     xval = xvals[i]
@@ -337,10 +339,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         break
                 
                 for j in range(ysize):
-                    diff = yvals[j] - line.y
-                    
-                    if diff < ERROR_T:
-                        print("yintersect stuff: ", diff)
+                    if abs(yvals[j] - line.y) < ERROR_T:
                         yindex = j
                 
                 line.i = afterXIndex - 0.5
@@ -348,15 +347,12 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 
                 afterLine = projection[(afterXIndex,yindex)]
                 if afterLine:
-                    print(line)
-                    print(afterLine)
                     for intersect in line.intersects.values():
                         matches = afterLine.findConnected(intersect)
                         intersect.connectedPlusX = matches
                         for match in matches:
-                            print(match)
+                            edges.append([match.index, intersect.index])
                             match.connectedMinusX.append(intersect)
-                
                 
                 beforeXIndex = afterXIndex -1
                 if beforeXIndex >= 0:
@@ -366,8 +362,53 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                             matches = beforeLine.findConnected(intersect)
                             intersect.connectedPlusX = matches
                             for match in matches:
+                                edges.append([match.index, intersect.index])
                                 match.connectedMinusX.append(intersect)
+                        #print("beforeLine\n", beforeLine)
+                        #print("line\n", line)
         
+        #Connect Edges to Extra Verts.
+        for lineList in xext.values():
+            for line in lineList:
+                afterYIndex = 0
+                xindex = 0
+                
+                for j in range(ysize):
+                    yval = yvals[j]
+                    if line.y < yval:
+                        afterYIndex = j
+                        break
+                    
+                for i in range(xsize):
+                    if abs(xvals[i] - line.x) < ERROR_T:
+                        xindex = i
+                
+                line.i = xindex
+                line.j = afterYIndex - 0.5
+                
+                afterLine = projection[(xindex,afterYIndex)]
+                if afterLine:
+                    for intersect in line.intersects.values():
+                        matches = afterLine.findConnected(intersect)
+                        intersect.connectedPlusY = matches
+                        for match in matches:
+                            edges.append([match.index, intersect.index])
+                            match.connectedMinusY.append(intersect)
+                print("hi", afterLine, xindex, afterYIndex)
+                
+                beforeYIndex = afterYIndex -1
+                if beforeYIndex >= 0:
+                    beforeLine = projection[(xindex,beforeYIndex)]
+                    if beforeLine:
+                        for intersect in line.intersects.values():
+                            matches = beforeLine.findConnected(intersect)
+                            intersect.connectedPlusY = matches
+                            for match in matches:
+                                edges.append([match.index, intersect.index])
+                                match.connectedMinusY.append(intersect)  
+                        print("beforeLine\n", beforeLine)
+                        print("line\n", line)
+
         #Generate Faces
         for i in range(xsize-1):
             for j in range(ysize-1):
@@ -376,7 +417,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                   projection[(i+1,j+1)])
         
         #Finished        
-        return verts, faces
+        return verts, edges, faces
     
     def findExtraGridMarkings(self, verts, edges, verts2, edges2, xvals, yvals):
         
@@ -612,28 +653,28 @@ class Intersect:
         if self.connectedPlusX:
             ret += "\n\tPlusX Connection ID: " 
             for i in self.connectedPlusX:
-                ret += str(i.index)
+                ret += str(i.index) + ", "
         else:
             ret += "\n\tPlusX Connection: " + str(self.connectedPlusX)
         
         if self.connectedPlusY:
             ret += "\n\tPlusY Connection ID: " 
             for i in self.connectedPlusY:
-                ret += str(i.index)
+                ret += str(i.index) + ", "
         else:
             ret += "\n\tPlusY Connection: " + str(self.connectedPlusY)
 
         if self.connectedMinusX:
             ret += "\n\tMinusX Connection ID: " 
             for i in self.connectedMinusX:
-                ret += str(i.index)
+                ret += str(i.index) + ", "
         else:
             ret += "\n\tMinusX Connection: " + str(self.connectedMinusX)
         
         if self.connectedMinusY:
             ret += "\n\tMinusY Connection ID: " 
             for i in self.connectedMinusY:
-                ret += str(i.index)
+                ret += str(i.index) + ", "
         else:
             ret += "\n\tMinusY Connection: " + str(self.connectedMinusY)
         
