@@ -335,7 +335,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         if v12:
                             for intersect in v11.intersects.values():
                                 matches = v12.findConnected(intersect)
-                                intersect.connectedPlusY = matches
+                                intersect.connectedPlusY += matches
                                 for match in matches:
                                     edges.append([match.index, intersect.index])    
                                     match.connectedMinusY.append(intersect)
@@ -345,7 +345,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         if v21:
                             for intersect in v11.intersects.values():
                                 matches = v21.findConnected(intersect)
-                                intersect.connectedPlusX = matches
+                                intersect.connectedPlusX += matches
                                 for match in matches:
                                     edges.append([match.index, intersect.index])
                                     match.connectedMinusX.append(intersect)
@@ -418,7 +418,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         for match in matches:
                             edges.append([match.index, intersect.index])
                             match.connectedMinusY.append(intersect)
-                print("hi", afterLine, xindex, afterYIndex)
                 
                 beforeYIndex = afterYIndex -1
                 if beforeYIndex >= 0:
@@ -430,8 +429,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                             for match in matches:
                                 edges.append([match.index, intersect.index])
                                 match.connectedPlusY.append(intersect)  
-                        print("beforeLine\n", beforeLine)   
-                        print("line\n", line)
 
         #Generate Faces
         for i in range(xsize-1):
@@ -506,7 +503,6 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 #Search North over ALL 
                 if sw.connectedPlusY:
                     for nw in sw.connectedPlusY:
-                         
                         #Search East over ALL
                         if nw.connectedPlusX:
                             for ne in nw.connectedPlusX:
@@ -850,14 +846,18 @@ class IntersectLine:
                         return ret
         
         #Intersct is abover or below us   
-        elif abs(intersect.y - self.y) < ERROR_T:
+        if abs(intersect.y - self.y) < ERROR_T:
             #Check for connected vertex
-            for vert in intersect.connected:
-                ret = self.findConnectedHelp(vert)
-                if ret:
-                   return ret
             
-            ret = self.findConnectedHelp(intersect.vert)
+            if intersect.isOnVert():
+                ret = self.findConnectedHelp(intersect.vert)
+            else:
+                for vert in intersect.connected:
+                    ret = []
+                    tmp = self.findConnectedHelp(vert)
+                    if tmp:
+                        ret += tmp
+                
             if ret:
                 return ret
         
@@ -889,6 +889,10 @@ class IntersectLine:
             for v in intersect.connected:
                     if v == vert:
                         matches.append(intersect)
+                        
+            if intersect.isOnVert():
+                if intersect.vert == vert:
+                    matches.append(intersect)
         
         return matches
 
