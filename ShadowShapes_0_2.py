@@ -1,4 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
+    # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License
@@ -230,9 +230,9 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 sy.select = True
             bpy.ops.object.delete()
         
-        #Actually generate the mesh
-        addMesh(name+"Surface", verts, edges, faces)
-        context.scene.objects[name+"Surface"].location = loc
+            #Actually generate the mesh
+            addMesh(name+"Surface", verts, edges, faces)
+            context.scene.objects[name+"Surface"].location = loc
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
@@ -315,6 +315,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 matches = v12.findConnected(intersect)
                                 intersect.connectedPlusY = matches
                                 for match in matches:
+                                    edges.append([match.index, intersect.index])    
                                     match.connectedMinusY.append(intersect)
                                     
                     if i != xsize-1:
@@ -324,6 +325,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 matches = v21.findConnected(intersect)
                                 intersect.connectedPlusX = matches
                                 for match in matches:
+                                    edges.append([match.index, intersect.index])
                                     match.connectedMinusX.append(intersect)
         
         #Connect Edges to Extra Verts.
@@ -360,10 +362,10 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     if beforeLine:
                         for intersect in line.intersects.values():
                             matches = beforeLine.findConnected(intersect)
-                            intersect.connectedPlusX = matches
+                            intersect.connectedMinusX = matches
                             for match in matches:
                                 edges.append([match.index, intersect.index])
-                                match.connectedMinusX.append(intersect)
+                                match.connectedPlusX.append(intersect)
                         #print("beforeLine\n", beforeLine)
                         #print("line\n", line)
         
@@ -402,11 +404,11 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                     if beforeLine:
                         for intersect in line.intersects.values():
                             matches = beforeLine.findConnected(intersect)
-                            intersect.connectedPlusY = matches
+                            intersect.connectedMinusY = matches
                             for match in matches:
                                 edges.append([match.index, intersect.index])
-                                match.connectedMinusY.append(intersect)  
-                        print("beforeLine\n", beforeLine)
+                                match.connectedPlusY.append(intersect)  
+                        print("beforeLine\n", beforeLine)   
                         print("line\n", line)
 
         #Generate Faces
@@ -533,11 +535,43 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         if ne.connectedMinusX:
                             for nw in ne.connectedMinusX:
                                 
-                                #Make Tri
-                                faces.append([se.index,
-                                              ne.index,
-                                              nw.index])
-        
+                                #Search for extra vert west
+                                if se.connectedMinusX:
+                                    for s in ne.connectedMinusX:
+                                        
+                                        #Search for extra vert west
+                                        if nw.connectedMinusY:
+                                            for w in nw.connectedMinusY:
+                                                
+                                                #Make Quint
+                                                faces.append([se.index,
+                                                              ne.index,
+                                                              nw.index])
+                                                faces.append([se.index,
+                                                              nw.index,
+                                                              w.index])
+                                        else:
+                                            #Make Quad
+                                            faces.append([se.index,
+                                                          ne.index,
+                                                          nw.index,
+                                                          s.index])
+                                
+                                elif nw.connectedMinusY:
+                                    for w in nw.connectedMinusY:
+                                        
+                                        #Make Quad
+                                        faces.append([se.index,
+                                                      ne.index,
+                                                      nw.index,
+                                                      w.index])
+                                
+                                else:
+                                    #Make Tri
+                                    faces.append([se.index,
+                                                  ne.index,
+                                                  nw.index])
+            
         return faces
 
     def findInsideList(self, intersects, vals):
@@ -678,8 +712,6 @@ class Intersect:
         else:
             ret += "\n\tMinusY Connection: " + str(self.connectedMinusY)
         
-
-
         return ret
 
     def intersectEdge(self, vert1, vert2, v1, v2):
@@ -846,7 +878,7 @@ def register():
     bpy.utils.register_class(Panel)
     bpy.utils.register_class(MESH_OT_AddSilhouetteObject)
     bpy.utils.register_class(MESH_OT_GenerateMesh)
-    bpy.utils.register_class(MESH_OT_Remove)  
+    bpy.utils.register_class(MESH_OT_Remove)
     
 def unregister():
     bpy.utils.unregister_class(HelloWorldPanel)
