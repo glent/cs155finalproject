@@ -209,6 +209,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         ob.select = False
         selectObjectName(name+"Surface")
         bpy.ops.object.delete()
+        selectObjectName(name+"Surface2")
+        bpy.ops.object.delete()
         ob.select = True
         
         #Input objects
@@ -218,11 +220,24 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         szName = self.makeMeshCopy("silhouetteZ", ob.silhouetteZ, context)
         
         if sxName and syName:
+            # === Generate First surface ===
             sy  = getObject(sxName)
             sx  = getObject(syName)
             
             verts, edges, faces = self.getGeometry(sx, sy)
+        
+            #Actually generate the mesh
+            addMesh(name+"Surface", verts, edges, faces)
+            context.scene.objects[name+"Surface"].location = loc
             
+            # === Generate Second Surface ===
+            sx  = getObject(sxName)
+            sy  = getObject(syName)
+            
+            verts2, edges2, faces2 = self.getGeometry(sx, sy)
+            
+            selectObjectName("NonExistant")
+            #bpy.ops.object.select_all(action='TOGGLE')
             #Delete temporary copies of silhouettes
             if (sx):
                 sx.select = True
@@ -231,8 +246,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
             bpy.ops.object.delete()
         
             #Actually generate the mesh
-            addMesh(name+"Surface", verts, edges, faces)
-            context.scene.objects[name+"Surface"].location = loc
+            addMesh(name+"Surface2", verts2, edges2, faces2)
+            context.scene.objects[name+"Surface2"].location = loc
+            
+            selectObjectName("NonExistant")
+            context.scene.objects[name+"Surface2"].select = True
+            bpy.ops.transform.rotate(value=1.5708, axis=(0, 1, 0), constraint_orientation='GLOBAL')
+            bpy.ops.transform.rotate(value=3.14159, axis=(1, 0, 0), constraint_orientation='GLOBAL')
+            bpy.ops.transform.rotate(value=3.14159, axis=(0, 0, 1), constraint_orientation='GLOBAL')
+            bpy.ops.transform.resize(value=(-1, 1, 1), constraint_orientation='GLOBAL')
         
         context.scene.objects.active = ob
         selectObjectName(ob.name)
