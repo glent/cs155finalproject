@@ -512,12 +512,19 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 #Search South over FIRST
                                 if ne.connectedMinusY:
                                     for se in ne.connectedMinusY:
-                                        #Make Quad
+                                        #Make 
                                         faces.append([sw.index,
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
-                                
+                                    
+                                    if sw.connectedPlusX:
+                                        for se2 in sw.connectedPlusX:
+                                            if se2.index != se.index:
+                                                faces.append([se.index,
+                                                              sw.index,
+                                                              se2.index])
+                                        
                                 #Search North over ALL 
                                 elif sw.connectedPlusX:
                                     for se in sw.connectedPlusX:
@@ -621,6 +628,12 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                   ne.index,
                                                   nw.index])
 
+                        elif se.connectedMinusX:
+                            for sw in se.connectedMinusX:
+                                faces.append([ne.index,
+                                              sw.index,
+                                              se.index])
+                
                 elif ne.connectedMinusX:
                         for nw in ne.connectedMinusX:
                             
@@ -647,8 +660,16 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 
         elif nwProjection:
             for nw in nwProjection.intersects.values():
-                None
                 
+                if nw.connectedMinusY:
+                    for sw in nw.connectedMinusY:
+                        
+                        if nw.connectedPlusX:
+                            for ne in nw.connectedPlusX:
+                                
+                                faces.append([ne.index,
+                                              nw.index,
+                                              sw.index])
         
         return faces
 
