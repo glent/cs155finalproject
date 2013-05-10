@@ -282,6 +282,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         selectObjectName(name+"Surface2")
                         context.scene.objects[name+"Surface3"].select = True
                         bpy.ops.object.join()
+                        
+                        #Remove Doubles
+                        currentMode = bpy.context.object.mode
+                        bpy.ops.object.mode_set(mode='EDIT')
+                        bpy.ops.mesh.remove_doubles(threshold=0.001, use_unselected=True)
+                        bpy.ops.mesh.select_all(action='SELECT')
+                        bpy.ops.mesh.normals_make_consistent(inside=False)
+                        bpy.ops.object.editmode_toggle()                
+                        bpy.ops.object.mode_set(mode=currentMode)
                 
         #Delete temporary copies of silhouettes
         selectObjectName("NonExistant")
