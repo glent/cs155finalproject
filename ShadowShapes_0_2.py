@@ -434,10 +434,12 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         for i in range(xsize-1):
             for j in range(ysize-1):
                 faces += self.detectFaceForSquare(verts,
-                                                  projection[(i,j)], 
-                                                  projection[(i+1,j+1)])
+                                                  projection[(i,j)],      #sw
+                                                  projection[(i+1,j+1)],  #ne
+                                                  projection[(i+1, j)],   #se
+                                                  projection[(i, j+1)])   #nw
         
-        #Finished        
+        #Finished
         return verts, edges, faces
     
     def findExtraGridMarkings(self, verts, edges, verts2, edges2, xvals, yvals):
@@ -493,7 +495,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 
         return newList
     
-    def detectFaceForSquare(self, verts, swProjection, neProjection):
+    def detectFaceForSquare(self, verts, swProjection, neProjection, seProjection, nwProjection):
         faces = []
         
         #Starting With the bottom left corner of the square
@@ -526,10 +528,11 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       
                                     if se.connectedPlusY:
                                         for ne2 in se.connectedPlusY:
-                                            faces.append([se.index,
-                                                          ne2.index,
-                                                          ne.index])
-                                            
+                                            if ne2.index != ne.index:
+                                                faces.append([se.index,
+                                                              ne2.index,
+                                                              ne.index])
+                                                
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
@@ -545,7 +548,14 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
-                                
+                                                      
+                                    #Search South over ALL
+                                    if ne.connectedMinusX:
+                                        for nw2 in ne.connectedMinusX:
+                                            if nw2.index != nw.index:
+                                                faces.append([ne.index,
+                                                              nw2.index,
+                                                              nw.index])
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
@@ -559,60 +569,87 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         #Search North over ALL
                         if se.connectedPlusY:
                             for ne in se.connectedPlusY:
-                                #Make Tri
-                                faces.append([sw.index,
-                                              se.index,
-                                              ne.index])
+                                
+                                if ne.connectedMinusX:
+                                    for nw in ne.connectedMinusX:
+                                        faces.append([sw.index,
+                                                      nw.index,
+                                                      ne.index,
+                                                      se.index])
+                                
+                                else:
+                                    #Make Tri
+                                    faces.append([sw.index,
+                                                  se.index,
+                                                  ne.index])
         
         #Start at far corner                              
         elif neProjection:
             for ne in neProjection.intersects.values():
                 
-                #Search South over ALL
                 if ne.connectedMinusY:
                     for se in ne.connectedMinusY:
                         
-                        #Search West over ALL
                         if ne.connectedMinusX:
                             for nw in ne.connectedMinusX:
                                 
-                                #Search for extra vert west
                                 if se.connectedMinusX:
-                                    for s in ne.connectedMinusX:
-                                        
-                                        #Search for extra vert west
-                                        if nw.connectedMinusY:
-                                            for w in nw.connectedMinusY:
-                                                
-                                                #Make Quint
-                                                faces.append([se.index,
-                                                              ne.index,
-                                                              nw.index])
-                                                faces.append([se.index,
-                                                              nw.index,
-                                                              w.index])
-                                        else:
-                                            #Make Quad
-                                            faces.append([se.index,
-                                                          ne.index,
-                                                          nw.index,
-                                                          s.index])
-                                
-                                elif nw.connectedMinusY:
-                                    for w in nw.connectedMinusY:
-                                        
-                                        #Make Quad
-                                        faces.append([se.index,
-                                                      ne.index,
+                                    for sw in se.connectedMinusX:
+                
+                                        faces.append([sw.index,
                                                       nw.index,
-                                                      w.index])
-                                
+                                                      ne.index,
+                                                      se.index])
+                                    
+                                    if nw.connectedMinusY:
+                                        for sw2 in nw.connectedMinusY:
+                                            if sw2.index != sw.index:
+                                                faces.append([sw.index,
+                                                              nw.index,
+                                                              sw2.index])
+                                                      
+                                elif nw.connectedMinusY:
+                                    for sw in nw.connectedMinusY:
+                                        
+                                        faces.append([sw.index,
+                                                      nw.index,
+                                                      ne.index,
+                                                      se.index])
+                                                      
                                 else:
-                                    #Make Tri
                                     faces.append([se.index,
                                                   ne.index,
                                                   nw.index])
-            
+
+                elif ne.connectedMinusX:
+                        for nw in ne.connectedMinusX:
+                            
+                            if nw.connectedMinusY:
+                                for sw in nw.connectedMinusY:
+                                    
+                                    faces.append([ne.index,
+                                                  nw.index,
+                                                  sw.index])
+                                                
+        elif seProjection:
+            for se in seProjection.intersects.values():
+                
+                 if se.connectedMinusX:
+                    for sw in se.connectedMinusX:
+                        
+                        if se.connectedPlusY:
+                            for ne in se.connectedPlusY:
+                                
+                                faces.append([se.index,
+                                              ne.index,
+                                              sw.index])
+                
+                
+        elif nwProjection:
+            for nw in nwProjection.intersects.values():
+                None
+                
+        
         return faces
 
     def findInsideList(self, intersects, vals):
