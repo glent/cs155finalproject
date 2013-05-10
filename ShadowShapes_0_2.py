@@ -515,6 +515,21 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                
+                                #Search North over ALL 
+                                elif sw.connectedPlusX:
+                                    for se in sw.connectedPlusX:
+                                        faces.append([sw.index,
+                                                      nw.index,
+                                                      ne.index,
+                                                      se.index])
+                                                      
+                                    if se.connectedPlusY:
+                                        for ne2 in se.connectedPlusY:
+                                            faces.append([se.index,
+                                                          ne2.index,
+                                                          ne.index])
+                                            
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
@@ -524,11 +539,19 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                         #Search North over ALL 
                         elif sw.connectedPlusX:
                             for se in sw.connectedPlusX:
-                                #Make Tri
-                                faces.append([sw.index,
-                                              nw.index,
-                                              se.index])
-                    
+                                if se.connectedPlusY:
+                                    for ne in se.connectedPlusY:
+                                        faces.append([sw.index,
+                                                      nw.index,
+                                                      ne.index,
+                                                      se.index])
+                                
+                                else:
+                                    #Make Tri
+                                    faces.append([sw.index,
+                                                  nw.index,
+                                                  se.index])
+                        
                 #Search East over ALL
                 elif sw.connectedPlusX:
                     for se in sw.connectedPlusX:
