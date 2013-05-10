@@ -131,7 +131,7 @@ def addMesh(name, verts, edges, faces):
             scn.objects.active = ob
             ob.select = True
          
-            me.from_pydata(verts, edges, faces)
+            me.from_pydata(verts, [], faces)
             
             me.update()
             
@@ -190,6 +190,10 @@ class MESH_OT_Remove(bpy.types.Operator):
         ob.select = False
         selectObjectName(name+"Surface")
         bpy.ops.object.delete()
+        selectObjectName(name+"Surface2")
+        bpy.ops.object.delete()
+        selectObjectName(name+"Surface3")
+        bpy.ops.object.delete()
         ob.select = True
         return{'FINISHED'}
 
@@ -210,6 +214,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
         selectObjectName(name+"Surface")
         bpy.ops.object.delete()
         selectObjectName(name+"Surface2")
+        bpy.ops.object.delete()
+        selectObjectName(name+"Surface3")
         bpy.ops.object.delete()
         ob.select = True
         
@@ -245,7 +251,38 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 bpy.ops.transform.rotate(value=3.14159, axis=(1, 0, 0), constraint_orientation='GLOBAL')
                 bpy.ops.transform.rotate(value=3.14159, axis=(0, 0, 1), constraint_orientation='GLOBAL')
                 bpy.ops.transform.resize(value=(-1, 1, 1), constraint_orientation='GLOBAL')
-            
+                
+                #Join Surfaces
+                selectObjectName(name+"Surface")
+                context.scene.objects[name+"Surface2"].select = True
+                bpy.ops.object.join()
+                
+                #Remove Doubles
+                currentMode = bpy.context.object.mode
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.remove_doubles(threshold=0.001, use_unselected=True)
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.mesh.normals_make_consistent(inside=False)
+                bpy.ops.object.editmode_toggle()                
+                bpy.ops.object.mode_set(mode=currentMode)
+        
+                if szName:
+                    sz = getObject(szName)
+                    if sz:
+                        verts3, edges3, faces3 = self.getGeometry(sz, sy)
+                        
+                        #Actually generate the mesh
+                        addMesh(name+"Surface3", verts2, edges2, faces2)
+                        context.scene.objects[name+"Surface3"].location = loc
+                        selectObjectName(name+"Surface3")
+                        bpy.ops.transform.rotate(value=-1.5708, axis=(1, 0, 0), constraint_orientation='GLOBAL')
+                        bpy.ops.transform.rotate(value=-1.5708, axis=(0, 0, 1), constraint_orientation='GLOBAL')
+                        
+                        #Join Surfaces
+                        selectObjectName(name+"Surface2")
+                        context.scene.objects[name+"Surface3"].select = True
+                        bpy.ops.object.join()
+                
         #Delete temporary copies of silhouettes
         selectObjectName("NonExistant")
         if sxName:
@@ -437,7 +474,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                   projection[(i,j)],      #sw
                                                   projection[(i+1,j+1)],  #ne
                                                   projection[(i+1, j)],   #se
-                                                  projection[(i, j+1)])   #nw
+                                                  projection[(i, j+1)],   #nw
+                                                  edges)
         
         #Finished
         return verts, edges, faces
@@ -495,7 +533,7 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                 
         return newList
     
-    def detectFaceForSquare(self, verts, swProjection, neProjection, seProjection, nwProjection):
+    def detectFaceForSquare(self, verts, swProjection, neProjection, seProjection, nwProjection, edges):
         faces = []
         
         #Starting With the bottom left corner of the square
@@ -517,12 +555,17 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                        edges.append([sw.index, 
+                                                      se.index])
+                                    
                                     
                                     if sw.connectedPlusX:
                                         for se2 in sw.connectedPlusX:
                                             if se2.index != se.index:
                                                 faces.append([se.index,
                                                               sw.index,
+                                                              se2.index])
+                                                edges.append([se.index, 
                                                               se2.index])
                                         
                                 #Search North over ALL 
@@ -532,6 +575,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                        edges.append([se.index, 
+                                                      ne.index])
                                                       
                                     if se.connectedPlusY:
                                         for ne2 in se.connectedPlusY:
@@ -539,11 +584,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                 faces.append([se.index,
                                                               ne2.index,
                                                               ne.index])
+                                                edges.append([ne2.index, 
+                                                              ne.index])
                                                 
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
                                                   nw.index,
+                                                  ne.index])
+                                    edges.append([sw.index,
                                                   ne.index])
                         
                         #Search North over ALL 
@@ -555,6 +604,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                        edges.append([ne.index,
+                                                      nw.index])
                                                       
                                     #Search South over ALL
                                     if ne.connectedMinusX:
@@ -563,10 +614,14 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                 faces.append([ne.index,
                                                               nw2.index,
                                                               nw.index])
+                                                edges.append([nw2.index,
+                                                              nw.index])
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
                                                   nw.index,
+                                                  se.index])
+                                    edges.append([nw.index,
                                                   se.index])
                         
                 #Search East over ALL
@@ -583,11 +638,15 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                        edges.append([sw.index,
+                                                      nw.index])
                                 
                                 else:
                                     #Make Tri
                                     faces.append([sw.index,
                                                   se.index,
+                                                  ne.index])
+                                    edges.append([sw.index,
                                                   ne.index])
         
         #Start at far corner                              
@@ -607,14 +666,18 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
-                                    
+                                        edges.append([sw.index,
+                                                      nw.index])
+                                        
                                     if nw.connectedMinusY:
                                         for sw2 in nw.connectedMinusY:
                                             if sw2.index != sw.index:
                                                 faces.append([sw.index,
                                                               nw.index,
                                                               sw2.index])
-                                                      
+                                                edges.append([sw.index,
+                                                              sw2.index])
+                                      
                                 elif nw.connectedMinusY:
                                     for sw in nw.connectedMinusY:
                                         
@@ -622,10 +685,14 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                                       nw.index,
                                                       ne.index,
                                                       se.index])
+                                        edges.append([sw.index,
+                                                      se.index])
                                                       
                                 else:
                                     faces.append([se.index,
                                                   ne.index,
+                                                  nw.index])
+                                    edges.append([se.index,
                                                   nw.index])
 
                         elif se.connectedMinusX:
@@ -633,6 +700,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 faces.append([ne.index,
                                               sw.index,
                                               se.index])
+                                edges.append([sw.index,
+                                              ne.index])
                 
                 elif ne.connectedMinusX:
                         for nw in ne.connectedMinusX:
@@ -642,6 +711,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                     
                                     faces.append([ne.index,
                                                   nw.index,
+                                                  sw.index])
+                                    edges.append([ne.index,
                                                   sw.index])
                                                 
         elif seProjection:
@@ -656,6 +727,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 faces.append([se.index,
                                               ne.index,
                                               sw.index])
+                                edges.append([ne.index,
+                                              sw.index])
                 
                 
         elif nwProjection:
@@ -669,6 +742,8 @@ class MESH_OT_GenerateMesh(bpy.types.Operator):
                                 
                                 faces.append([ne.index,
                                               nw.index,
+                                              sw.index])
+                                edges.append([ne.index,
                                               sw.index])
         
         return faces
